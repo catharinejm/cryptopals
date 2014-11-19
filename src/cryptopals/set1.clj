@@ -208,3 +208,9 @@
   (let [lines (line-seq (io/reader file))
         scores (map pick-string lines)]
     (reduce best-score scores)))
+
+(defn repeating-key-xor
+  [^String input ^String key]
+  (apply str (sequence (comp (map #(xor (int %1) (int %2)))
+                             bytes->hex*)
+                       input (cycle key))))
