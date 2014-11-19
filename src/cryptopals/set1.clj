@@ -1,4 +1,5 @@
-(ns cryptopals.set1)
+(ns cryptopals.set1
+  (:require [clojure.java.io :as io]))
 
 (set! *warn-on-reflection* true)
 (set! *unchecked-math* true)
@@ -95,7 +96,7 @@
             (mapcat b64))))
 
 (defn sanitize-hex
-  [^String hex]
+  ^String [^String hex]
   (.toLowerCase (if (odd? (count hex))
                   (str "0" hex)
                   hex)))
@@ -168,18 +169,32 @@
 (defn byte-xor
   [^String hex b]
   (apply str (sequence (comp hex->bytes*
-                             (map (partial xor b))
-                             (map char))
+                             (map #(char (xor b %))))
                        (sanitize-hex hex))))
+
+(defn best-score
+  [{:keys [score] :as res} {new-scr :score :as next}]
+  (if (< new-scr score)
+    next
+    res))
+
+(defn score-map
+  [hex b]
+  (let [s (byte-xor hex b)]
+    {:score (score-string s)
+     :hex hex
+     :result s
+     :cipher (char b)}))
 
 (defn pick-string
   [^String hex]
-  (rest (reduce (fn [[scr :as res] [s n]]
-                  (let [new-scr (score-string s)]
-                    (if (< new-scr scr)
-                      [new-scr s n]
-                      res)))
-                (let [fst (byte-xor hex 0)]
-                  [(score-string fst) fst (char 0)])
-                (for [n (range 1 128)]
-                  [(byte-xor hex n) (char n)]))))
+  (let [hex (sanitize-hex hex)]
+    (reduce best-score
+            (for [n (range 256)]
+              (score-map hex n)))))
+
+(defn find-encoded-hex
+  [file]
+  (let [lines (line-seq (io/reader file))
+        scores (map pick-string lines)]
+    (reduce best-score scores)))
