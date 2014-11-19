@@ -120,7 +120,7 @@
                        (sequence hex->bytes* (sanitize-hex hex2)))))
 
 ;; From http://www.data-compression.com/english.html
-(def letter-freq
+#_(def letter-freq
   {\e 0.0651738
    \t 0.0124248
    \a 0.0217339
@@ -148,23 +148,33 @@
    \q 0.0145984
    \z 0.0007836
    \space 0.1918182})
- 
+
+(def ^String letter-order
+  "etaoin shrdlcumwfgypbvkjxqz")
+
 (defn score-string
   [^String string]
-  (if (some #(or (< (int %) 32)
-                 (> (int %) 126))
-            string)
-    Double/POSITIVE_INFINITY
-    (let [s (.toLowerCase string)
-          letters (filter letter-freq s)
-          freq (into {}
-                     (for [[ch fq] (frequencies letters)]
-                       [ch (double (/ fq (count letters)))]))
-          total (reduce (fn [sum [ch lfq]]
-                          (+ (/ (freq ch 0) lfq)
-                             sum))
-                        0 letter-freq)]
-      (/ total (count letters)))))
+  (let [s (.toLowerCase string)
+        freq (frequencies s)
+        comp (reify java.util.Comparator
+               (compare [this c1 c2]
+                 (let [f1 (freq c1 0)
+                       f2 (freq c2 0)]
+                   (cond
+                    (< f1 f2) 1
+                    :else -1))))
+        result (apply sorted-set-by comp (keys freq))
+        ^String letters (apply str (filter freq letter-order))]
+    (loop [r result
+           sum 0
+           idx 0]
+      (if (seq r)
+        (if ((set letters) (first r))
+          (recur (rest r)
+                 (+ sum (Math/abs (- idx (.indexOf letters (int (first r))))))
+                 (inc idx))
+          (recur (rest r) (+ sum (.length letter-order)) idx))
+        sum))))
 
 (defn byte-xor
   [^String hex b]
