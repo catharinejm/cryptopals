@@ -1,4 +1,4 @@
-(ns cryptopals.problem1)
+(ns cryptopals.set1)
 
 (set! *warn-on-reflection* true)
 (set! *unchecked-math* true)
