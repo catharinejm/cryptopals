@@ -24,36 +24,6 @@
       (println "Result: " y#)
       y#) ~x))
 
-;; (def hex->bytes*
-;;   (let [nibl (fn [chr]
-;;                (case chr
-;;                  (\0 \1 \2 \3 \4 \5 \6 \7 \8 \9) (- (int chr) (int \0))
-;;                  (\a \b \c \d \e \f) (+ 10 (- (int chr) (int \a)))
-;;                  (throw (IllegalArgumentException. (str "invalid hexidecimal character: " chr)))))
-;;         to-byte (fn [h l]
-;;                   (+ (* 16 (nibl h)) (nibl l)))]
-;;     (fn [rf]
-;;       (let [high (volatile! nil)]
-;;         (fn
-;;           ([] (rf))
-;;           ([res] (rf res))
-;;           ([res c]
-;;              (if-let [h @high]
-;;                (do
-;;                  (vreset! high nil)
-;;                  (rf res (to-byte h c)))
-;;                (do
-;;                  (vreset! high c)
-;;                  res)))
-;;           ([res c & cs]
-;;              (if-let [hs (seq @high)]
-;;                (do
-;;                  (vreset! high nil)
-;;                  (rf res (map to-byte hs (cons c cs))))
-;;                (do
-;;                  (vreset! high (cons c cs))
-;;                  res))))))))
-
 (def hex->bytes*
   (let [nibl (fn [chr]
                (case chr
@@ -143,7 +113,7 @@
   [hex1 hex2]
   (when-not (= (count hex1) (count hex2))
     (throw (IllegalArgumentException. "Unequal input lengths")))
-  (apply str (sequence (comp (map #(xor %1 %2))
+  (apply str (sequence (comp (map xor)
                              bytes->hex*)
                        (sequence hex->bytes* (sanitize-hex hex1))
                        (sequence hex->bytes* (sanitize-hex hex2)))))
