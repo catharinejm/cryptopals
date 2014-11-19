@@ -24,19 +24,19 @@
       (println "Result: " y#)
       y#) ~x))
 
-(defn hex->base64
-  [^String hex]
-  (let [hex (.toLowerCase (if (odd? (count hex))
-                            (str "0" hex)
-                            hex))
-        nibl (fn [chr]
+(def hex->bytes*
+  (let [nibl (fn [chr]
                (case chr
                  (\0 \1 \2 \3 \4 \5 \6 \7 \8 \9) (- (int chr) (int \0))
                  (\a \b \c \d \e \f) (+ 10 (- (int chr) (int \a)))
                  (throw (IllegalArgumentException. (str "invalid hexidecimal character: " chr)))))
         to-byte (fn ([[h l]]
-                       (+ (* 16 (nibl h)) (nibl l))))
-        b64* (fn [b]
+                       (+ (* 16 (nibl h)) (nibl l))))]
+    (comp (partition-all 2)
+          (map to-byte))))
+
+(def bytes->base64*
+    (let [b64* (fn [b]
                (when (or (neg? b) (> b 63))
                  (throw (IllegalArgumentException. (str "invalid base64 number: " b))))
                (cond
@@ -76,8 +76,20 @@
                 (b64* (<< (& b1 3) 4))
                 \=
                 \=]))]
-    (apply str (sequence (comp (partition-all 2)
-                               (map to-byte)
-                               (partition-all 3)
-                               (mapcat b64))
-                         hex))))
+      (comp (partition-all 3)
+            (mapcat b64))))
+
+(defn sanitize-hex
+  [^String hex]
+  (.toLowerCase (if (odd? (count hex))
+                  (str "0" hex)
+                  hex)))
+
+(defn hex->bytes
+  [^String hex]
+  (sequence hex->bytes* (sanitize-hex hex)))
+
+(defn hex->base64
+  [^String hex]
+  (apply str (sequence (comp hex->bytes* bytes->base64*)
+                       (sanitize-hex hex))))
