@@ -117,3 +117,69 @@
                              bytes->hex*)
                        (sequence hex->bytes* (sanitize-hex hex1))
                        (sequence hex->bytes* (sanitize-hex hex2)))))
+
+;; From http://www.data-compression.com/english.html
+(def letter-freq
+  {\e 0.0651738
+   \t 0.0124248
+   \a 0.0217339
+   \o 0.0349835
+   \i 0.1041442
+   \n 0.0197881
+   \s 0.0158610
+   \h 0.0492888
+   \r 0.0558094
+   \d 0.0009033
+   \l 0.0050529
+   \c 0.0331490
+   \u 0.0202124
+   \m 0.0564513
+   \w 0.0596302
+   \f 0.0137645
+   \g 0.0008606
+   \y 0.0497563
+   \p 0.0515760
+   \b 0.0729357
+   \v 0.0225134
+   \k 0.0082903
+   \j 0.0171272
+   \x 0.0013692
+   \q 0.0145984
+   \z 0.0007836
+   \space 0.1918182})
+ 
+(defn score-string
+  [^String string]
+  (if (some #(or (< (int %) 32)
+                 (> (int %) 126))
+            string)
+    Double/POSITIVE_INFINITY
+    (let [s (.toLowerCase string)
+          letters (filter letter-freq s)
+          freq (into {}
+                     (for [[ch fq] (frequencies letters)]
+                       [ch (double (/ fq (count letters)))]))
+          total (reduce (fn [sum [ch lfq]]
+                          (+ (/ (freq ch 0) lfq)
+                             sum))
+                        0 letter-freq)]
+      (/ total (count letters)))))
+
+(defn byte-xor
+  [^String hex b]
+  (apply str (sequence (comp hex->bytes*
+                             (map (partial xor b))
+                             (map char))
+                       (sanitize-hex hex))))
+
+(defn pick-string
+  [^String hex]
+  (rest (reduce (fn [[scr :as res] [s n]]
+                  (let [new-scr (score-string s)]
+                    (if (< new-scr scr)
+                      [new-scr s n]
+                      res)))
+                (let [fst (byte-xor hex 0)]
+                  [(score-string fst) fst (char 0)])
+                (for [n (range 1 128)]
+                  [(byte-xor hex n) (char n)]))))
