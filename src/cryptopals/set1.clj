@@ -281,11 +281,13 @@
 
 (defn guess-ecb-line
   [file]
-  (transduce (comp (map hex->bytes*)
-                   (map #(vector % (get-averages (/ (count %) 16) % 16))))
-             (completing best-distance)
-             [:NO-LINE Double/POSITIVE_INFINITY]
-             (line-seq (io/reader file))))
+  (let [lines (line-seq (io/reader file))
+        guess (transduce (comp (map #(sequence hex->bytes* %))
+                               (map #(vector (apply str (sequence bytes->hex* %)) (get-averages (/ (count %) 16) % 16))))
+                         (completing best-distance)
+                         [:NO-LINE Double/POSITIVE_INFINITY]
+                         lines)]
+    (.indexOf ^java.util.List (vec lines) (first guess))))
 
 (defn challenge1
   []
@@ -338,3 +340,8 @@
 (defn challenge7
   []
   (println (aes-ecb-decrypt (decode-base64-file "resources/7.txt") "YELLOW SUBMARINE")))
+
+(defn challenge8
+  []
+  (println "ECB line:" (guess-ecb-line "resources/8.txt"))
+  (println "Probably, anyway..."))
