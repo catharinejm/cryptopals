@@ -1,5 +1,7 @@
 (ns cryptopals.set1
-  (:require [clojure.java.io :as io]))
+  (:require [clojure.java.io :as io])
+  (:import javax.crypto.Cipher
+           javax.crypto.spec.SecretKeySpec))
 
 (set! *warn-on-reflection* true)
 (set! *unchecked-math* true)
@@ -218,10 +220,10 @@
      :cipher (char b)}))
 
 (defn score-map
-  [bytes b]
-  (let [s (apply str (map #(char (xor b %)) bytes))]
-    {:score (score-string s)
-     :cipher (char b)}))
+  [string cipher]
+  {:score (score-string string)
+   :cipher cipher
+   :result string})
 
 (defn pick-string
   [^String hex]
@@ -246,25 +248,30 @@
   (reduce #(+ %1 (Long/bitCount %2))
           0 (map #(xor %1 %2) buf1 buf2)))
 
+(defn get-averages
+  [sample-size bytes ksize]
+  (letfn [(avg-dist [[key & keys :as sample]]
+            (/ (reduce (fn [s k]
+                         (+ s (/ (hamming-distance key k) ksize)))
+                       0 keys)
+               (count sample)))]
+    (loop [keys (take sample-size (partition ksize bytes))
+           sum 0]
+      (if (next keys)
+        (recur (next keys)
+               (+ sum (avg-dist keys)))
+        (/ sum sample-size)))))
+
+(defn best-distance
+  [[best-guess min-dist :as cur] [ks avg-dist :as next]]
+  (if (< avg-dist min-dist)
+    next
+    cur))
+
 (defn guess-keysize
   [sample-size bytes]
-  (letfn [(get-averages [ksize]
-            (letfn [(avg-dist [[key & keys :as sample]]
-                      (/ (reduce (fn [s k]
-                                   (+ s (/ (hamming-distance key k) ksize)))
-                                 0 keys)
-                         (count sample)))]
-              (loop [keys (take sample-size (partition ksize bytes))
-                     sum 0]
-                (if (next keys)
-                  (recur (next keys)
-                         (+ sum (avg-dist keys)))
-                  [ksize (/ sum sample-size)]))))]
-    (first (reduce (fn [[best-guess min-dist :as cur] [ks avg-dist :as next]]
-                     (if (< avg-dist min-dist)
-                       next
-                       cur))
-                   (map get-averages (range 2 41))))))
+  (first (reduce best-distance
+                 (map #(vector % (get-averages sample-size bytes %)) (range 2 41)))))
 
 (defn guess-key
   [bytes]
@@ -272,17 +279,43 @@
         num-chunks (int (Math/ceil (/ (count bytes) ksize)))
         chunks (partition num-chunks
                           (apply interleave
-                                 (partition ksize ksize (repeat nil) bytes)))]
+                                 (partition ksize ksize (repeat nil) bytes)))
+        decode (fn [bytes key]
+                 (apply str (map #(char (xor key %)) bytes)))]
     (for [c chunks
           :let [c (keep identity c)]]
       (:cipher (reduce best-score {:score Double/POSITIVE_INFINITY}
-                       (map #(score-map c %) (range 256)))))))
+                       (map #(score-map (decode c %) (char %)) (range 256)))))))
+
+(defn decode-base64-file
+  [file]
+  (sequence (comp cat base64->bytes*) (line-seq (io/reader file))))
 
 (defn break-repeating-xor
   [file]
-  (let [bytes (sequence (comp cat base64->bytes*) (line-seq (io/reader file)))
+  (let [bytes (decode-base64-file file)
         key (guess-key bytes)]
     (apply str (map char (repeating-key-xor bytes key)))))
+
+(defn aes-ecb-decrypt
+  [bytes ^String key]
+  (when (not= (.length key) 16)
+    (throw (IllegalArgumentException. (str "invalid key length: " (.length key) " (key: " key ")"))))
+  (let [secret-key (SecretKeySpec. (.getBytes key) "AES")
+        decrypt (doto (javax.crypto.Cipher/getInstance "AES/ECB/NoPadding")
+                  (.init javax.crypto.Cipher/DECRYPT_MODE secret-key))]
+    (apply str (sequence (comp (partition-all 16)
+                               (mapcat #(.doFinal decrypt (byte-array %)))
+                               (map #(char (& 0xFF %))))
+                         bytes))))
+
+(defn guess-ecb-line
+  [file]
+  (transduce (comp (map hex->bytes*)
+                   (map #(vector % (get-averages (/ (count %) 16) % 16))))
+             (completing best-distance)
+             [:NO-LINE Double/POSITIVE_INFINITY]
+             (line-seq (io/reader file))))
 
 (defn challenge1
   []
@@ -331,3 +364,7 @@
 (defn challenge6
   []
   (println (break-repeating-xor "resources/6.txt")))
+
+(defn challenge7
+  []
+  (println (aes-ecb-decrypt (decode-base64-file "resources/7.txt") "YELLOW SUBMARINE")))
