@@ -11,9 +11,16 @@
 (defn cbc-decrypt
   [bytes iv ^String key]
   (let [decrypter (aes-decrypter key)]
-    (loop [chunks (reverse (partition 16 bytes))
-           decoded ()]
-      )))
+    (loop [chunks (partition 16 bytes)
+           key iv
+           decoded []]
+      (if (seq chunks)
+        (let [dec (.update decrypter (byte-array (first chunks)))
+              xord (xor-buffers dec key)]
+          (recur (rest chunks)
+                 (first chunks)
+                 (conj decoded xord)))
+        (apply concat decoded)))))
 
 (defn challenge9
   []
@@ -22,3 +29,9 @@
         result (apply str (map char (pkcs7 input 20)))]
     (assert (= expected result))
     result))
+
+(defn challenge10
+  []
+  (let [bytes (decode-base64-file "resources/10.txt")]
+    (println (apply str (sequence bytes->chars*
+                                  (cbc-decrypt bytes (repeat 16 0) "YELLOW SUBMARINE"))))))

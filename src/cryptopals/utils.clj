@@ -1,4 +1,5 @@
 (ns cryptopals.utils
+  (:require [clojure.java.io :as io])
   (:import javax.crypto.Cipher
            javax.crypto.spec.SecretKeySpec))
 
@@ -112,6 +113,9 @@
     (comp (partition-all 4)
           (mapcat to-bytes))))
 
+(def bytes->chars*
+  (map #(char (& 0xFF %))))
+
 (defn sanitize-hex
   ^String [^String hex]
   (.toLowerCase (if (odd? (count hex))
@@ -124,7 +128,7 @@
           0 (map #(xor %1 %2) buf1 buf2)))
 
 (defn aes-decrypter
-  [^String key]
+  ^Cipher [^String key]
   (when (not= (.length key) 16)
     (throw (IllegalArgumentException. (str "invalid key length: " (.length key) " (key: " key ")"))))
   (doto (javax.crypto.Cipher/getInstance "AES/ECB/NoPadding")
@@ -139,10 +143,16 @@
                     (map #(char (& 0xFF %))))
               bytes)))
 
+(def xor-buffers*
+  (map xor))
+
 (defn xor-buffers
   [buf1 buf2]
   (when-not (= (count buf1) (count buf2))
     (throw (IllegalArgumentException. "Unequal input lengths")))
-  (sequence (comp (map xor)
-                  bytes->hex*)
-            buf1 buf2))
+  (sequence xor-buffers* buf1 buf2))
+
+(defn decode-base64-file
+  [file]
+  (sequence (comp cat base64->bytes*) (line-seq (io/reader file))))
+

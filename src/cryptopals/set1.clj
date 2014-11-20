@@ -15,8 +15,9 @@
 
 (defn xor-hex
   [hex1 hex2]
-  (apply str (xor-buffers (sequence hex->bytes* (sanitize-hex hex1))
-                          (sequence hex->bytes* (sanitize-hex hex2)))))
+  (apply str (sequence (comp xor-buffers* bytes->hex*)
+                       (sequence hex->bytes* (sanitize-hex hex1))
+                       (sequence hex->bytes* (sanitize-hex hex2)))))
 
 (def ^String letter-order
   "etaoin shrdlcumwfgypbvkjxqz")
@@ -133,23 +134,11 @@
       (:cipher (reduce best-score {:score Double/POSITIVE_INFINITY}
                        (map #(score-map (decode c %) (char %)) (range 256)))))))
 
-(defn decode-base64-file
-  [file]
-  (sequence (comp cat base64->bytes*) (line-seq (io/reader file))))
-
 (defn break-repeating-xor
   [file]
   (let [bytes (decode-base64-file file)
         key (guess-key bytes)]
     (apply str (map char (repeating-key-xor bytes key)))))
-
-(defn aes-ecb-decrypt
-  [bytes ^String key]
-  (let [decrypter (aes-decrypter key)]
-    (sequence (comp (partition-all 16)
-                    (mapcat #(.doFinal decrypter (byte-array %)))
-                    (map #(char (& 0xFF %))))
-              bytes)))
 
 (defn guess-ecb-line
   [file]
@@ -211,7 +200,8 @@
 
 (defn challenge7
   []
-  (println (aes-ecb-decrypt (decode-base64-file "resources/7.txt") "YELLOW SUBMARINE")))
+  (println (apply str
+                  (aes-ecb-decrypt (decode-base64-file "resources/7.txt") "YELLOW SUBMARINE"))))
 
 (defn challenge8
   []
