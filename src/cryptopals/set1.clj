@@ -137,36 +137,6 @@
                        (sequence hex->bytes* (sanitize-hex hex1))
                        (sequence hex->bytes* (sanitize-hex hex2)))))
 
-;; From http://www.data-compression.com/english.html
-#_(def letter-freq
-  {\e 0.0651738
-   \t 0.0124248
-   \a 0.0217339
-   \o 0.0349835
-   \i 0.1041442
-   \n 0.0197881
-   \s 0.0158610
-   \h 0.0492888
-   \r 0.0558094
-   \d 0.0009033
-   \l 0.0050529
-   \c 0.0331490
-   \u 0.0202124
-   \m 0.0564513
-   \w 0.0596302
-   \f 0.0137645
-   \g 0.0008606
-   \y 0.0497563
-   \p 0.0515760
-   \b 0.0729357
-   \v 0.0225134
-   \k 0.0082903
-   \j 0.0171272
-   \x 0.0013692
-   \q 0.0145984
-   \z 0.0007836
-   \space 0.1918182})
-
 (def ^String letter-order
   "etaoin shrdlcumwfgypbvkjxqz")
 
