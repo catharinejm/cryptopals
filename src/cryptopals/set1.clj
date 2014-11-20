@@ -51,49 +51,65 @@
                (xnibl (& b 0xF))])]
     (mapcat hex)))
 
+(def ^String base64string
+  (apply str (concat (map char (range (int \A) (inc (int \Z))))
+                     (map char (range (int \a) (inc (int \z))))
+                     (map char (range (int \0) (inc (int \9))))
+                     (list \+ \/))))
+
 (def bytes->base64*
-    (let [b64* (fn [b]
-               (when (or (neg? b) (> b 63))
-                 (throw (IllegalArgumentException. (str "invalid base64 number: " b))))
-               (cond
-                (< b 26)
-                (char (+ b (int \A)))
-
-                (< b 52)
-                (char (+ (- b 26) (int \a)))
-
-                (< b 62)
-                (char (+ (- b 52) (int \0)))
-
-                (= b 62)
-                \+
-
-                (= b 63)
-                \/))
+  (let [b64* (fn [b]
+               (if (or (neg? b) (> b 63))
+                 (throw (IllegalArgumentException. (str "invalid base64 number: " b)))
+                 (.charAt base64string b)))
         b64 (fn [[b1 b2 b3]]
-              (cond
-               b3
-               [(b64* (>>> b1 2))
-                (b64* (| (<< (& b1 3) 4)
-                         (>>> b2 4)))
-                (b64* (| (<< (& b2 0xF) 2)
-                         (>>> b3 6)))
-                (b64* (& b3 0x3F))]
+              (let [chrs (cond
+                          b3
+                          (map b64* [(>>> b1 2)
+                                     (| (<< (& b1 3) 4)
+                                        (>>> b2 4))
+                                     (| (<< (& b2 0xF) 2)
+                                        (>>> b3 6))
+                                     (& b3 0x3F)])
 
-               b2
-               [(b64* (>>> b1 2))
-                (b64* (| (<< (& b1 3) 4)
-                         (>>> b2 4)))
-                (b64* (<< (& b2 0xF) 2))
-                \=]
+                          b2
+                          (map b64* [(>>> b1 2)
+                                     (| (<< (& b1 3) 4)
+                                        (>>> b2 4))
+                                     (<< (& b2 0xF) 2)])
 
-               :else
-               [(b64* (>>> b1 2))
-                (b64* (<< (& b1 3) 4))
-                \=
-                \=]))]
+                          :else
+                          (map b64* [(>>> b1 2)
+                                     (<< (& b1 3) 4)]))]
+                (take 4 (concat chrs (repeat \=)))))]
       (comp (partition-all 3)
             (mapcat b64))))
+
+(def base64->bytes*
+  (let [b64int (fn [n]
+                 (let [i (.indexOf base64string (int n))]
+                   (if (and (= -1 i)
+                            (not= \= (char n)))
+                     (throw (IllegalArgumentException. (str "Illegal base64 character: " (char n))))
+                     i)))
+        to-bytes (fn [cs]
+                   (let [[n1 n2 n3 n4] (map b64int cs)]
+                     (cond
+                      (> n4 -1)
+                      [(| (<< n1 2) (>>> n2 4))
+                       (| (<< (& n2 0xF) 4)
+                          (>>> n3 2))
+                       (| (<< (& n3 3) 6) n4)]
+
+                      (> n3 -1)
+                      [(| (<< n1 2) (>>> n2 4))
+                       (| (<< (& n2 0xF) 4)
+                          (>>> n3 2))]
+
+                      :else
+                      [(| (<< n1 2) (>>> n2 4))])))]
+    (comp (partition-all 4)
+          (mapcat to-bytes))))
 
 (defn sanitize-hex
   ^String [^String hex]
@@ -214,3 +230,13 @@
   (apply str (sequence (comp (map #(xor (int %1) (int %2)))
                              bytes->hex*)
                        input (cycle key))))
+
+(defn hamming-distance
+  [buf1 buf2]
+  (reduce #(+ %1 (Long/bitCount %2))
+          0 (map #(xor %1 %2) buf1 buf2)))
+
+(defn break-repeating-xor
+  [file]
+  (let [b64-input (apply str (line-seq (io/reader file)))]
+    (apply str (sequence (comp base64->bytes* bytes->base64*) b64-input))))
