@@ -201,7 +201,7 @@
 (defn challenge7
   []
   (println (apply str
-                  (aes-ecb-decrypt (decode-base64-file "resources/7.txt") "YELLOW SUBMARINE"))))
+                  (ecb-decrypt (decode-base64-file "resources/7.txt") "YELLOW SUBMARINE"))))
 
 (defn challenge8
   []

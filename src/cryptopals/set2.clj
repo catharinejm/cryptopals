@@ -4,24 +4,6 @@
   (:import javax.crypto.Cipher
            javax.crypto.spec.SecretKeySpec))
 
-(defn pkcs7
-  [block blen]
-  (take blen (concat block (repeat (- blen (count block))))))
-
-(defn cbc-decrypt
-  [bytes iv ^String key]
-  (let [decrypter (aes-decrypter key)]
-    (loop [chunks (partition 16 bytes)
-           key iv
-           decoded []]
-      (if (seq chunks)
-        (let [dec (.update decrypter (byte-array (first chunks)))
-              xord (xor-buffers dec key)]
-          (recur (rest chunks)
-                 (first chunks)
-                 (conj decoded xord)))
-        (apply concat decoded)))))
-
 (defn challenge9
   []
   (let [input "YELLOW SUBMARINE"

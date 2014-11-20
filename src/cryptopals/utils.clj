@@ -135,13 +135,31 @@
     (.init javax.crypto.Cipher/DECRYPT_MODE
            (SecretKeySpec. (.getBytes key) "AES"))))
 
-(defn aes-ecb-decrypt
+(defn ecb-decrypt
   [bytes ^String key]
   (let [decrypter (aes-decrypter key)]
     (sequence (comp (partition-all 16)
                     (mapcat #(.doFinal decrypter (byte-array %)))
                     (map #(char (& 0xFF %))))
               bytes)))
+
+(defn pkcs7
+  [block blen]
+  (take blen (concat block (repeat (- blen (count block))))))
+
+(defn cbc-decrypt
+  [bytes iv ^String key]
+  (let [decrypter (aes-decrypter key)]
+    (loop [chunks (partition 16 bytes)
+           key iv
+           decoded []]
+      (if (seq chunks)
+        (let [dec (.update decrypter (byte-array (first chunks)))
+              xord (xor-buffers dec key)]
+          (recur (rest chunks)
+                 (first chunks)
+                 (conj decoded xord)))
+        (apply concat decoded)))))
 
 (def xor-buffers*
   (map xor))
