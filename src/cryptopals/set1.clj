@@ -192,10 +192,15 @@
           (recur (rest r) (+ sum (.length letter-order)) idx))
         sum))))
 
-(defn byte-xor
+(defn byte-xor*
+  [b]
+  (map #(xor b %)))
+
+(defn byte-xor-hex
   [^String hex b]
   (apply str (sequence (comp hex->bytes*
-                             (map #(char (xor b %))))
+                             (byte-xor* b)
+                             (map char))
                        (sanitize-hex hex))))
 
 (defn best-score
@@ -204,12 +209,18 @@
     next
     res))
 
-(defn score-map
+(defn score-map-hex
   [hex b]
-  (let [s (byte-xor hex b)]
+  (let [s (byte-xor-hex hex b)]
     {:score (score-string s)
      :hex hex
      :result s
+     :cipher (char b)}))
+
+(defn score-map
+  [bytes b]
+  (let [s (apply str (map #(char (xor b %)) bytes))]
+    {:score (score-string s)
      :cipher (char b)}))
 
 (defn pick-string
@@ -226,17 +237,49 @@
     (reduce best-score scores)))
 
 (defn repeating-key-xor
-  [^String input ^String key]
-  (apply str (sequence (comp (map #(xor (int %1) (int %2)))
-                             bytes->hex*)
-                       input (cycle key))))
+  [input key]
+  (apply str (map #(char (xor (int %1) (int %2)))
+                  input (cycle key))))
 
 (defn hamming-distance
   [buf1 buf2]
   (reduce #(+ %1 (Long/bitCount %2))
           0 (map #(xor %1 %2) buf1 buf2)))
 
+(defn guess-keysize
+  [sample-size bytes]
+  (letfn [(get-averages [ksize]
+            (letfn [(avg-dist [[key & keys :as sample]]
+                      (/ (reduce (fn [s k]
+                                   (+ s (/ (hamming-distance key k) ksize)))
+                                 0 keys)
+                         (count sample)))]
+              (loop [keys (take sample-size (partition ksize bytes))
+                     sum 0]
+                (if (next keys)
+                  (recur (next keys)
+                         (+ sum (avg-dist keys)))
+                  [ksize (/ sum sample-size)]))))]
+    (first (reduce (fn [[best-guess min-dist :as cur] [ks avg-dist :as next]]
+                     (if (< avg-dist min-dist)
+                       next
+                       cur))
+                   (map get-averages (range 2 41))))))
+
+(defn guess-key
+  [bytes]
+  (let [ksize (guess-keysize 4 bytes)
+        num-chunks (int (Math/ceil (/ (count bytes) ksize)))
+        chunks (partition num-chunks
+                          (apply interleave
+                                 (partition ksize ksize (repeat nil) bytes)))]
+    (for [c chunks
+          :let [c (keep identity c)]]
+      (:cipher (reduce best-score {:score Double/POSITIVE_INFINITY}
+                       (map #(score-map c %) (range 256)))))))
+
 (defn break-repeating-xor
   [file]
-  (let [b64-input (apply str (line-seq (io/reader file)))]
-    (apply str (sequence (comp base64->bytes* bytes->base64*) b64-input))))
+  (let [bytes (sequence (comp cat base64->bytes*) (line-seq (io/reader file)))
+        key (guess-key bytes)]
+    (repeating-key-xor bytes key)))
