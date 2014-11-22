@@ -1,6 +1,7 @@
 (ns cryptopals.set2
   (:require [cryptopals.utils :refer :all]
-            [clojure.java.io :as io])
+            [clojure.java.io :as io]
+            [clojure.string :as s])
   (:import javax.crypto.Cipher
            javax.crypto.spec.SecretKeySpec
            java.security.SecureRandom))
@@ -31,9 +32,13 @@
                                key)})))
 
 (defn consistent-key-encrypter
-  [key unknown-input]
-  (fn [bytes]
-    (ecb-encrypt (concat bytes unknown-input) key)))
+  ([] (consistent-key-encrypter nil))
+  ([unknown-input]
+     (let [key (random-buffer 16)]
+       (fn encrypter
+         ([] (encrypter nil))
+         ([bytes]
+            (ecb-encrypt (concat bytes unknown-input) key))))))
 
 (declare guess-encryption)
 (defn determine-method
@@ -48,14 +53,11 @@
        (count (ffirst groups)))))
 
 (defn decrypt-unknown
-  []
-  (let [key (random-buffer 16)
-        special-input (decode-base64-file "resources/12.txt")
-        encrypter-fn (consistent-key-encrypter key special-input)
-        _ (when-not (= :ecb (determine-method encrypter-fn))
-            (throw (RuntimeException. "Only ECB encrypters will work")))
-        blocksize (determine-blocksize encrypter-fn)
-        enc-length (count (encrypter-fn nil))
+  [encrypter-fn]
+  (when-not (= :ecb (determine-method encrypter-fn))
+    (throw (RuntimeException. "Only ECB encrypters will work")))
+  (let [blocksize (determine-blocksize encrypter-fn)
+        enc-length (count (encrypter-fn))
         next-match (fn [pad-len offset]
                      (take blocksize (drop offset (encrypter-fn (repeat pad-len 0)))))
         decrypt-byte (fn [match known-bytes]
@@ -99,19 +101,6 @@
                                    (decode-block offset known)))))]
     (decode-buffer)))
 
-(defn xor-prev*
-  [init]
-  (let [prev (volatile! init)]
-    (fn [xf]
-      (fn
-        ([] (xf))
-        ([res] (xf res))
-        ([res input]
-           (let [p @prev
-                 nxt (xor-buffers input p)]
-             (vreset! prev input)
-             (xf res nxt)))))))
-
 (defn guess-encryption
   [encrypted]
   (let [chunks (partition-all 16 encrypted)]
@@ -134,6 +123,28 @@
                  (update-in res [:wrong] inc)))
         res))))
 
+(defn decode-query-string
+  [query]
+  (apply array-map (into [] (map #(s/split % #"=")) (s/split query #"&"))))
+
+(defn encode-query-string
+  [obj]
+  (s/join "&" (map #(s/join "=" %) (partition 2 obj))))
+
+(defn profile-for
+  [email]
+  (let [sani (s/replace email #"[&=]" #(case %
+                                         "&" "%26"
+                                         "=" "%3D"))]
+    (encode-query-string ["email" sani
+                          "uid" 10
+                          "role" "user"])))
+
+(defn admin-role
+  []
+  (let [encrypter-fn (consistent-key-encrypter)]
+    ))
+
 (defn challenge9
   []
   (let [input "YELLOW SUBMARINE"
@@ -151,6 +162,11 @@
 (defn challenge11
   []
   (let [{:keys [right wrong]} (score-guesses 10000)]
-    (assert (or (zero? wrong) (< (/ right wrong) 0.95)))
+    (assert (or (zero? wrong) (< (/ right wrong) 95/100)))
     (println "Success!")))
 
+(defn challenge12
+  []
+  (let [special-input (decode-base64-file "resources/12.txt")
+        encrypter-fn (consistent-key-encrypter special-input)]
+    (apply str (map char (decrypt-unknown encrypter-fn)))))
