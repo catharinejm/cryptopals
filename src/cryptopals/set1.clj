@@ -19,33 +19,6 @@
                        (sequence hex->bytes* (sanitize-hex hex1))
                        (sequence hex->bytes* (sanitize-hex hex2)))))
 
-(def ^String letter-order
-  "etaoin shrdlcumwfgypbvkjxqz")
-
-(defn score-string
-  [^String string]
-  (let [s (.toLowerCase string)
-        freq (frequencies s)
-        comp (reify java.util.Comparator
-               (compare [this c1 c2]
-                 (let [f1 (freq c1 0)
-                       f2 (freq c2 0)]
-                   (cond
-                    (< f1 f2) 1
-                    :else -1))))
-        result (apply sorted-set-by comp (keys freq))
-        ^String letters (apply str (filter freq letter-order))]
-    (loop [r result
-           sum 0
-           idx 0]
-      (if (seq r)
-        (if ((set letters) (first r))
-          (recur (rest r)
-                 (+ sum (Math/abs (- idx (.indexOf letters (int (first r))))))
-                 (inc idx))
-          (recur (rest r) (+ sum (.length letter-order)) idx))
-        sum))))
-
 (defn byte-xor*
   [b]
   (map #(xor b %)))
@@ -95,20 +68,6 @@
   (map #(xor (int %1) (int %2))
        input (cycle key)))
 
-(defn get-averages
-  [sample-size bytes ksize]
-  (letfn [(avg-dist [[key & keys :as sample]]
-            (/ (reduce (fn [s k]
-                         (+ s (/ (hamming-distance key k) ksize)))
-                       0 keys)
-               (count sample)))]
-    (loop [keys (take sample-size (partition ksize bytes))
-           sum 0]
-      (if (next keys)
-        (recur (next keys)
-               (+ sum (avg-dist keys)))
-        (/ sum sample-size)))))
-
 (defn best-distance
   [[best-guess min-dist :as cur] [ks avg-dist :as next]]
   (if (< avg-dist min-dist)
@@ -118,7 +77,7 @@
 (defn guess-keysize
   [sample-size bytes]
   (first (reduce best-distance
-                 (map #(vector % (get-averages sample-size bytes %)) (range 2 41)))))
+                 (map #(vector % (average-hamming-distance sample-size bytes %)) (range 2 41)))))
 
 (defn guess-key
   [bytes]
@@ -144,7 +103,7 @@
   [file]
   (let [lines (line-seq (io/reader file))
         guess (transduce (comp (map #(sequence hex->bytes* %))
-                               (map #(vector % (get-averages (/ (count %) 16) % 16))))
+                               (map #(vector % (average-hamming-distance (/ (count %) 16) % 16))))
                          (completing best-distance)
                          [:NO-LINE Double/POSITIVE_INFINITY]
                          lines)]

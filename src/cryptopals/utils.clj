@@ -116,6 +116,33 @@
 (def bytes->chars*
   (map #(char (& 0xFF %))))
 
+(def ^String letter-order
+  "etaoin shrdlcumwfgypbvkjxqz")
+
+(defn score-string
+  [^String string]
+  (let [s (.toLowerCase string)
+        freq (frequencies s)
+        comp (reify java.util.Comparator
+               (compare [this c1 c2]
+                 (let [f1 (freq c1 0)
+                       f2 (freq c2 0)]
+                   (cond
+                    (< f1 f2) 1
+                    :else -1))))
+        result (apply sorted-set-by comp (keys freq))
+        ^String letters (apply str (filter freq letter-order))]
+    (loop [r result
+           sum 0
+           idx 0]
+      (if (seq r)
+        (if ((set letters) (first r))
+          (recur (rest r)
+                 (+ sum (Math/abs (- idx (.indexOf letters (int (first r))))))
+                 (inc idx))
+          (recur (rest r) (+ sum (.length letter-order)) idx))
+        sum))))
+
 (defn sanitize-hex
   ^String [^String hex]
   (.toLowerCase (if (odd? (count hex))
@@ -127,28 +154,100 @@
   (reduce #(+ %1 (Long/bitCount %2))
           0 (map #(xor %1 %2) buf1 buf2)))
 
+(defn validate-key!
+  [key]
+  (when (not= (count key) 16)
+    (throw (IllegalArgumentException. (str "invalid key length: " (count key) " (key: " key ")")))))
+
+(defn get-bytes
+  ^bytes [buf]
+  (if (string? buf)
+    (.getBytes ^String buf)
+    (byte-array buf)))
+
+(defn aes-encrypter
+  ^Cipher [key]
+  (validate-key! key)
+  (doto (Cipher/getInstance "AES/ECB/NoPadding")
+    (.init Cipher/ENCRYPT_MODE
+           (SecretKeySpec. (get-bytes key) "AES"))))
+
 (defn aes-decrypter
-  ^Cipher [^String key]
-  (when (not= (.length key) 16)
-    (throw (IllegalArgumentException. (str "invalid key length: " (.length key) " (key: " key ")"))))
+  ^Cipher [key]
+  (validate-key! key)
   (doto (javax.crypto.Cipher/getInstance "AES/ECB/NoPadding")
     (.init javax.crypto.Cipher/DECRYPT_MODE
-           (SecretKeySpec. (.getBytes key) "AES"))))
+           (SecretKeySpec. (get-bytes key) "AES"))))
 
 (defn ecb-decrypt
-  [bytes ^String key]
+  [bytes key]
   (let [decrypter (aes-decrypter key)]
     (sequence (comp (partition-all 16)
-                    (mapcat #(.doFinal decrypter (byte-array %)))
-                    (map #(char (& 0xFF %))))
+                    (mapcat #(.update decrypter (byte-array %)))
+                    bytes->chars*)
               bytes)))
+
+(defn pad-bytes
+  [bytes pad-len]
+  (concat bytes (repeat pad-len pad-len)))
 
 (defn pkcs7
   [block blen]
-  (take blen (concat block (repeat (- blen (count block))))))
+  (pad-bytes block (- blen (count block))))
+
+(defn encrypt-block*
+  [^Cipher encrypter]
+  (comp (map #(pkcs7 % 16))
+        (map #(.update encrypter (byte-array %)))))
+
+(defn encrypt-block
+  [encrypter block]
+  (sequence (encrypt-block* encrypter) block))
+
+(defn ecb-encrypt
+  [bytes key]
+  (let [encrypter (aes-encrypter key)
+        res (sequence (comp (partition-all 16)
+                            (encrypt-block* encrypter)
+                            cat)
+                      bytes)]
+    (.doFinal encrypter)
+    res))
+
+(def xor-buffers*
+  (map xor))
+
+(defn xor-buffers
+  [buf1 buf2]
+  (when-not (= (count buf1) (count buf2))
+    (throw (IllegalArgumentException. "Unequal input lengths")))
+  (sequence xor-buffers* buf1 buf2))
+
+(defn cbc-block-encrypt*
+  [iv ^Cipher encrypter]
+  (let [prev (volatile! iv)]
+    (fn [xf]
+      (fn
+        ([] (xf))
+        ([result] (xf result))
+        ([result input]
+           (let [p @prev
+                 xord (xor-buffers p input)
+                 encrypted (seq (.update encrypter (byte-array xord)))]
+             (vreset! prev encrypted)
+             (xf result encrypted)))))))
+
+(defn cbc-encrypt
+  [bytes iv key]
+  (let [encrypter (aes-encrypter key)]
+    (sequence (comp (partition-all 16)
+                    (map #(pkcs7 % 16))
+                    (cbc-block-encrypt* iv encrypter)
+                    cat)
+              bytes)))
 
 (defn cbc-decrypt
-  [bytes iv ^String key]
+  [bytes iv key]
   (let [decrypter (aes-decrypter key)]
     (loop [chunks (partition 16 bytes)
            key iv
@@ -161,16 +260,20 @@
                  (conj decoded xord)))
         (apply concat decoded)))))
 
-(def xor-buffers*
-  (map xor))
-
-(defn xor-buffers
-  [buf1 buf2]
-  (when-not (= (count buf1) (count buf2))
-    (throw (IllegalArgumentException. "Unequal input lengths")))
-  (sequence xor-buffers* buf1 buf2))
-
 (defn decode-base64-file
   [file]
   (sequence (comp cat base64->bytes*) (line-seq (io/reader file))))
 
+(defn average-hamming-distance
+  [sample-size bytes ksize]
+  (letfn [(avg-dist [[key & keys :as sample]]
+            (/ (reduce (fn [s k]
+                         (+ s (hamming-distance key k)))
+                       0 keys)
+               (count sample)))]
+    (loop [keys (take sample-size (partition ksize bytes))
+           sum 0]
+      (if (next keys)
+        (recur (next keys)
+               (+ sum (avg-dist keys)))
+        (/ sum sample-size)))))
