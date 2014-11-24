@@ -113,8 +113,19 @@
     (comp (partition-all 4)
           (mapcat to-bytes))))
 
+(defn byte->char
+  [b]
+  (unchecked-char (Byte/toUnsignedInt (unchecked-int b))))
+
 (def bytes->chars*
-  (map #(char (& 0xFF %))))
+  (map byte->char))
+
+(defn char->byte
+  [chr]
+  (unchecked-byte (unchecked-int chr)))
+
+(def chars->bytes*
+  (map char->byte))
 
 (def ^String letter-order
   "etaoin shrdlcumwfgypbvkjxqz")

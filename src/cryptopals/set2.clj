@@ -49,23 +49,56 @@
   [encrypter-fn]
   (let [increasing-lengths (iterate #(cons 0 %) (list 0))
         groups (partition-by count (map encrypter-fn increasing-lengths))]
-    (- (count (first (second groups)))
-       (count (ffirst groups)))))
+    (Math/abs (apply - (take 2 (map (comp count first) groups))))))
+
+(defn block-getter
+  [blocksize input-gen]
+  (fn [offset input]
+    (take blocksize (drop offset (input-gen input)))))
+
+(defn encrypted-block-attributes
+  [encrypter-fn]
+  (let [blocksize (determine-blocksize encrypter-fn)
+        get-block (block-getter blocksize encrypter-fn)
+        init-offset (loop [offset 0]
+                      (let [match (get-block offset "")
+                            check (get-block offset (list 0))]
+                        (if (seq check)
+                          (if (= check match)
+                            (recur (+ offset blocksize))
+                            offset)
+                          (throw (RuntimeException. "Failed to find alterable block")))))
+        min-pad (loop [input-len 0
+                       match (get-block init-offset nil)]
+                  (when (> input-len blocksize)
+                    (throw (RuntimeException. "Failed to determine unknown prefix length")))
+                  (let [check (get-block init-offset (repeat (inc input-len) 0))]
+                    (if (= match check)
+                      (mod input-len blocksize)
+                      (recur (inc input-len) check))))
+        init-offset (if (> min-pad 0)
+                      (+ init-offset blocksize)
+                      init-offset)]
+    {:blocksize blocksize
+     :base-offset init-offset
+     :min-padding min-pad
+     :get-block get-block}))
 
 (defn decrypt-unknown
   [encrypter-fn]
   (when-not (= :ecb (determine-method encrypter-fn))
     (throw (RuntimeException. "Only ECB encrypters will work")))
-  (let [blocksize (determine-blocksize encrypter-fn)
+  (let [{:keys [blocksize base-offset min-padding get-block]} (encrypted-block-attributes encrypter-fn)
         enc-length (count (encrypter-fn))
+        _ (println "min-padding:" min-padding "base-offset:" base-offset)
         next-match (fn [pad-len offset]
-                     (take blocksize (drop offset (encrypter-fn (repeat pad-len 0)))))
+                     (take blocksize (drop offset (encrypter-fn (repeat (+ pad-len min-padding) 0)))))
         decrypt-byte (fn [match known-bytes]
                        (loop [guess 0]
                          (let [guess-bytes (conj known-bytes guess)
                                res (encrypter-fn (subvec guess-bytes
-                                                         (- (count guess-bytes) blocksize)))]
-                           (if (= (take blocksize res) match)
+                                                         (- (count guess-bytes) blocksize min-padding)))]
+                           (if (= (take blocksize (drop base-offset res)) match)
                              guess-bytes
                              (if (= guess 255)
                                nil
@@ -93,8 +126,8 @@
                                  (recur (dec pad-len)
                                         decrypted)))))))
         decode-buffer (fn []
-                        (loop [offset 0
-                               known (vec (repeat (dec blocksize) 0))]
+                        (loop [offset base-offset
+                               known (vec (repeat (+ min-padding (dec blocksize)) 0))]
                           (if (= offset enc-length)
                             (drop (dec blocksize) known)
                             (recur (+ offset blocksize)
@@ -141,9 +174,26 @@
                           "role" "user"])))
 
 (defn admin-role
-  []
-  (let [encrypter-fn (consistent-key-encrypter)]
-    ))
+  [email key]
+  (let [encrypter-fn (let [enc #(ecb-encrypt % key)]
+                       (fn ef
+                         ([] (ef nil))
+                         ([bs] (enc (sequence chars->bytes* (profile-for (apply str (map byte->char bs))))))))
+        {:keys [blocksize base-offset min-padding get-block]} (encrypted-block-attributes encrypter-fn)
+        ^String prof (profile-for email)
+        needed-len (- blocksize (mod (.. prof
+                                         (substring 0 (inc (.lastIndexOf prof "=")))
+                                         length)
+                                     blocksize))
+        pad-email (if (> needed-len 0)
+                    (str "jon.distad+"
+                         (apply str (repeat (dec needed-len) \a))
+                         "@gmail.com")
+                    email)
+        encrypted-admin (get-block base-offset (pkcs7 (into (vec (repeat min-padding 0))
+                                                            (map char->byte "admin"))
+                                                      (+ blocksize min-padding)))]
+    (concat (drop-last blocksize (encrypter-fn pad-email)) encrypted-admin)))
 
 (defn challenge9
   []
@@ -162,7 +212,7 @@
 (defn challenge11
   []
   (let [{:keys [right wrong]} (score-guesses 10000)]
-    (assert (or (zero? wrong) (< (/ right wrong) 95/100)))
+    (assert (or (zero? wrong) (> (/ right wrong) 95/100)))
     (println "Success!")))
 
 (defn challenge12
@@ -170,3 +220,12 @@
   (let [special-input (decode-base64-file "resources/12.txt")
         encrypter-fn (consistent-key-encrypter special-input)]
     (apply str (map char (decrypt-unknown encrypter-fn)))))
+
+(defn challenge13
+  []
+  (let [key (random-buffer 16)
+        email "jon.distad@gmail.com"
+        enc (admin-role email key)
+        ^String dec (apply str (map byte->char (ecb-decrypt enc key)))]
+    (assert (.contains dec "&role=admin"))
+    dec))
