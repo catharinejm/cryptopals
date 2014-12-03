@@ -4,10 +4,6 @@
   (:import javax.crypto.Cipher
            javax.crypto.spec.SecretKeySpec))
 
-(defn hex->bytes
-  [^String hex]
-  (sequence hex->bytes* (sanitize-hex hex)))
-
 (defn hex->base64
   [^String hex]
   (apply str (sequence (comp hex->bytes* bytes->base64*)

@@ -1,7 +1,8 @@
 (ns cryptopals.utils
   (:require [clojure.java.io :as io])
   (:import javax.crypto.Cipher
-           javax.crypto.spec.SecretKeySpec))
+           javax.crypto.spec.SecretKeySpec
+           java.security.SecureRandom))
 
 (set! *warn-on-reflection* true)
 (set! *unchecked-math* true)
@@ -37,6 +38,10 @@
                   (+ (* 16 (nibl h)) (nibl l)))]
     (comp (partition-all 2)
           (map to-byte))))
+
+(defn hex->bytes
+  [hex]
+  (sequence hex->bytes* hex))
 
 (def bytes->hex*
   (let [xnibl (fn [n]
@@ -113,12 +118,20 @@
     (comp (partition-all 4)
           (mapcat to-bytes))))
 
+(defn base64->bytes
+  [base64]
+  (sequence base64->bytes* base64))
+
 (defn byte->char
   [b]
   (unchecked-char (Byte/toUnsignedInt (unchecked-int b))))
 
 (def bytes->chars*
   (map byte->char))
+
+(defn bytes->string
+  ^String [bytes]
+  (apply str (map byte->char bytes)))
 
 (defn char->byte
   [chr]
@@ -198,18 +211,35 @@
                     bytes->chars*)
               bytes)))
 
-(defn pad-bytes
-  [bytes pad-len]
-  (concat bytes (repeat pad-len pad-len)))
-
 (defn pkcs7
-  [block blen]
-  (pad-bytes block (- blen (count block))))
+  [bytes blen]
+  (let [offset (- blen (mod (count bytes) blen))
+        pad-len (if (zero? offset)
+                  blen
+                  offset)]
+    (concat bytes (repeat pad-len pad-len))))
+
+(defn strip-pkcs7
+  [input blen]
+  (let [blocks (partition-all blen input)
+        last-block (last blocks)
+        last-byte (int (last last-block))]
+    (when (not= blen (count last-block))
+      (throw (ex-info "Input has improper PKCS#7 padding - Length is not a multiple of blocksize" {:padding-error true})))
+    (if (<= last-byte blen)
+      (if (= (count (take-while #(= last-byte (int %)) (reverse last-block)))
+             last-byte)
+        (concat (apply concat (butlast blocks)) (drop-last last-byte last-block))
+        (throw (ex-info "Input has improper PKCS#7 padding - invalid pad byte sequence" {:padding-error true})))
+      input)))
+
+(defn plaintext-strip-pcks7
+  [text blen]
+  (apply str (map byte->char (strip-pkcs7 (map char->byte text) blen))))
 
 (defn encrypt-block*
   [^Cipher encrypter]
-  (comp (map #(pkcs7 % 16))
-        (map #(.update encrypter (byte-array %)))))
+  (map #(.update encrypter (byte-array %))))
 
 (defn encrypt-block
   [encrypter block]
@@ -221,7 +251,7 @@
         res (sequence (comp (partition-all 16)
                             (encrypt-block* encrypter)
                             cat)
-                      bytes)]
+                      (pkcs7 bytes 16))]
     (.doFinal encrypter)
     res))
 
@@ -252,10 +282,9 @@
   [bytes iv key]
   (let [encrypter (aes-encrypter key)]
     (sequence (comp (partition-all 16)
-                    (map #(pkcs7 % 16))
                     (cbc-block-encrypt* iv encrypter)
                     cat)
-              bytes)))
+              (pkcs7 bytes 16))))
 
 (defn cbc-decrypt
   [bytes iv key]
@@ -279,7 +308,7 @@
   [sample-size bytes ksize]
   (letfn [(avg-dist [[key & keys :as sample]]
             (/ (reduce (fn [s k]
-                         (+ s (hamming-distance key k)))
+                         (+ s (/ (hamming-distance key k) ksize)))
                        0 keys)
                (count sample)))]
     (loop [keys (take sample-size (partition ksize bytes))
@@ -288,3 +317,9 @@
         (recur (next keys)
                (+ sum (avg-dist keys)))
         (/ sum sample-size)))))
+
+(defn random-buffer
+  [len]
+  (let [bs (byte-array len)]
+    (.nextBytes (SecureRandom.) bs)
+    (seq bs)))

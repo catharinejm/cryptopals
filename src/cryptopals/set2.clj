@@ -1,16 +1,7 @@
 (ns cryptopals.set2
   (:require [cryptopals.utils :refer :all]
             [clojure.java.io :as io]
-            [clojure.string :as s])
-  (:import javax.crypto.Cipher
-           javax.crypto.spec.SecretKeySpec
-           java.security.SecureRandom))
-
-(defn random-buffer
-  [len]
-  (let [bs (byte-array len)]
-    (.nextBytes (SecureRandom.) bs)
-    (seq bs)))
+            [clojure.string :as s]))
 
 (defn random-pad-buffer
   [buf]
@@ -89,7 +80,7 @@
   (when-not (= :ecb (determine-method encrypter-fn))
     (throw (RuntimeException. "Only ECB encrypters will work")))
   (let [{:keys [blocksize base-offset min-padding get-block]} (encrypted-block-attributes encrypter-fn)
-        enc-length (count (encrypter-fn))
+        enc-length (count (encrypter-fn (repeat min-padding 0)))
         _ (println "min-padding:" min-padding "base-offset:" base-offset)
         next-match (fn [pad-len offset]
                      (take blocksize (drop offset (encrypter-fn (repeat (+ pad-len min-padding) 0)))))
@@ -126,12 +117,13 @@
                                  (recur (dec pad-len)
                                         decrypted)))))))
         decode-buffer (fn []
-                        (loop [offset base-offset
-                               known (vec (repeat (+ min-padding (dec blocksize)) 0))]
-                          (if (= offset enc-length)
-                            (drop (dec blocksize) known)
-                            (recur (+ offset blocksize)
-                                   (decode-block offset known)))))]
+                        (let [init-pad (vec (repeat (+ min-padding (dec blocksize)) 0))]
+                          (loop [offset base-offset
+                                 known init-pad]
+                            (if (= offset enc-length)
+                              (drop (count init-pad) known)
+                              (recur (+ offset blocksize)
+                                     (decode-block offset known))))))]
     (decode-buffer)))
 
 (defn guess-encryption
@@ -164,17 +156,22 @@
   [obj]
   (s/join "&" (map #(s/join "=" %) (partition 2 obj))))
 
+(defn sanitize
+  [s]
+  (s/replace s #"[&;=]" #(case %
+                           "&" "%26"
+                           ";" "%3B"
+                           "=" "%3D")))
+
 (defn profile-for
   [email]
-  (let [sani (s/replace email #"[&=]" #(case %
-                                         "&" "%26"
-                                         "=" "%3D"))]
+  (let [sani (sanitize email)]
     (encode-query-string ["email" sani
                           "uid" 10
                           "role" "user"])))
 
 (defn admin-role
-  [email key]
+  [^String email key]
   (let [encrypter-fn (let [enc #(ecb-encrypt % key)]
                        (fn ef
                          ([] (ef nil))
@@ -186,14 +183,52 @@
                                          length)
                                      blocksize))
         pad-email (if (> needed-len 0)
-                    (str "jon.distad+"
-                         (apply str (repeat (dec needed-len) \a))
-                         "@gmail.com")
+                    (let [at-idx (.indexOf email "@")]
+                      (str (.substring email 0 at-idx)
+                           \+
+                           (apply str (repeat (dec needed-len) \a))
+                           (.substring email at-idx)))
                     email)
-        encrypted-admin (get-block base-offset (pkcs7 (into (vec (repeat min-padding 0))
-                                                            (map char->byte "admin"))
-                                                      (+ blocksize min-padding)))]
+        encrypted-admin (get-block base-offset (into (vec (repeat min-padding 0))
+                                                     (pkcs7 (map char->byte "admin")
+                                                            blocksize)))]
     (concat (drop-last blocksize (encrypter-fn pad-email)) encrypted-admin)))
+
+(defn userdata-string
+  [data]
+  (let [prefix "comment1=cooking%20MCs;userdata="
+        suffix ";comment2=%20like%20a%20pound%20of%20bacon"
+        sani (sanitize data)]
+    (str prefix sani suffix)))
+
+(defn contains-admin?
+  [s]
+  (some (partial = "admin=true")
+        (s/split s #";")))
+
+(defn break-cbc
+  []
+  (let [key (random-buffer 16)
+        iv (random-buffer 16)
+        encrypter-fn (fn ef
+                       ([] (ef nil))
+                       ([bytes]
+                          (cbc-encrypt (map char->byte
+                                            (userdata-string (bytes->string bytes)))
+                                       iv key)))
+        decrypter-fn (fn [enc]
+                       (cbc-decrypt enc iv key))
+        encrypted-admin? (fn [enc]
+                           (contains-admin? (bytes->string (decrypter-fn enc))))
+        {:keys [blocksize base-offset min-padding get-block]} (encrypted-block-attributes encrypter-fn)
+        input (take blocksize (concat (map char->byte ";admin=true;") (repeat 0)))
+        alter-block (map char->byte (take blocksize (drop base-offset (userdata-string ""))))
+        zeros (encrypter-fn (repeat (+ blocksize min-padding) 0))
+        xord (reduce xor-buffers [alter-block input (get-block base-offset (repeat (+ blocksize min-padding) 0))])
+        with-input (concat (take base-offset zeros)
+                           xord
+                           (drop (+ base-offset (count xord)) zeros))]
+    (encrypted-admin? with-input)))
 
 (defn challenge9
   []
@@ -229,3 +264,38 @@
         ^String dec (apply str (map byte->char (ecb-decrypt enc key)))]
     (assert (.contains dec "&role=admin"))
     dec))
+
+(defn challenge14
+  []
+  (let [key (random-buffer 16)
+        special-input (decode-base64-file "resources/12.txt")
+        prefix (random-buffer (int (rand 100)))
+        encrypter-fn (let [enc #(ecb-encrypt (concat prefix % special-input) key)]
+                       (fn ef
+                         ([] (ef nil))
+                         ([bytes]
+                            (enc bytes))))]
+    (apply str (map byte->char (decrypt-unknown encrypter-fn)))))
+
+(defn challenge15
+  []
+  (assert (= "ICE ICE BABY" (plaintext-strip-pcks7 "ICE ICE BABY\4\4\4\4" 16)))
+  (try (plaintext-strip-pcks7 "ICE ICE BABY\5\5\5\5" 16)
+       (assert false "should not get here")
+       (catch Exception e
+         (assert (.. e getMessage (contains "invalid pad byte sequence")))))
+  (try (plaintext-strip-pcks7 "ICE ICE BABY\1\2\3\4" 16)
+       (assert false "should not get here")
+       (catch Exception e
+         (assert (.. e getMessage (contains "invalid pad byte sequence")))))
+  (try (plaintext-strip-pcks7 "ICE ICE BABY" 16)
+       (assert false "should not get here")
+       (catch Exception e
+         (assert (.. e getMessage (contains "not a multiple of blocksize")))))
+  (println "Checks pass"))
+
+
+(defn challenge16
+  []
+  (assert (break-cbc))
+  (println "CBC broken!"))
