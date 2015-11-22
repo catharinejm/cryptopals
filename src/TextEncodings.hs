@@ -1,4 +1,4 @@
-module Util where
+module TextEncodings where
 
 import           Data.Bits
 import           Data.ByteString.Lazy (ByteString)

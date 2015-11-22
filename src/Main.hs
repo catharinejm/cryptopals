@@ -1,6 +1,8 @@
 module Main where
 
-import Util
+import qualified Set1
 
 main :: IO ()
-main = putStrLn "Cryptopals!"
+main = do
+  putStrLn "\nWelcome to Cryptopals!!!"
+  Set1.run
