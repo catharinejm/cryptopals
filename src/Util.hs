@@ -14,6 +14,7 @@ import           Data.Vector ((!), (!?))
 import qualified Data.Vector as V
 import           Control.Monad
 import           Control.Monad.RWS.Lazy
+import           Control.Monad.Writer.Lazy
 import           Control.Monad.Except
 
 decodeHex :: String -> Put
@@ -32,8 +33,25 @@ decodeHex hexStr = validate >> decode hexStr
     fromHex n | isHexDigit n = return $ (ord $ toLower n) - (ord 'a') + 10
     fromHex n = fail $ "invalid hex char: " ++ [n]
 
+encodeHex :: WriterT String Get ()
+encodeHex = do
+  empty <- lift isEmpty
+  if empty
+    then return ()
+    else do hs <- lift $ B.runBitGet hexStr
+            tell hs
+            encodeHex
+  where
+    hexStr = do hi <- B.getWord8 4
+                lo <- B.getWord8 4
+                return [(hexChars ! (fromIntegral hi)), (hexChars ! (fromIntegral lo))]
+    hexChars = V.fromList $ ['0'..'9']++['a'..'f']
+
 fromHex :: String -> ByteString
 fromHex str = runPut $ decodeHex str
+
+toHex :: ByteString -> String
+toHex bs = runGet (execWriterT encodeHex) bs
 
 encodeBase64 :: RWST () String (Word8, Int) Get ()
 encodeBase64 = do
