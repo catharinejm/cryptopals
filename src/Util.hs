@@ -6,6 +6,7 @@ import qualified Data.ByteString.Lazy as BS
 import           Data.Binary.Get
 import           Data.Binary.Bits.Get (BitGet)
 import qualified Data.Binary.Bits.Get as B
+import qualified Data.Binary.Bits.Put as B
 import           Data.Binary.Put
 import           Data.Word
 import           Data.Char
@@ -19,19 +20,15 @@ import           Control.Monad.Except
 
 decodeHex :: String -> Put
 decodeHex [] = return ()
-decodeHex hexStr | odd $ length hexStr = decodeHex $ '0':hexStr
-decodeHex hexStr = validate >> decode hexStr
+decodeHex hexStr = B.runBitPut $ decode padded
   where
-    validate = when (any (not . isHexDigit) hexStr) $ fail $ "invalid hex string: " ++ hexStr
+    padded = if odd $ length hexStr then '0':hexStr else hexStr
+    putHex n = fromHex n >>= B.putWord8 4
     decode [] = return ()
-    decode (n1:n2:rest) = do
-      hi <- fromHex n1
-      lo <- fromHex n2
-      putWord8 $ fromIntegral $ hi `shiftL` 4 .|. lo
-      decode rest
-    fromHex n | isDigit n = return $ (ord n) - (ord '0')
-    fromHex n | isHexDigit n = return $ (ord $ toLower n) - (ord 'a') + 10
-    fromHex n = fail $ "invalid hex char: " ++ [n]
+    decode (n1:n2:rest) = putHex n1 >> putHex n2 >> decode rest
+    fromHex n | isDigit n    = return $ fromIntegral $ (ord n) - (ord '0')
+    fromHex n | isHexDigit n = return $ fromIntegral $ (ord $ toLower n) - (ord 'a') + 10
+    fromHex n = fail $ "invalid hex char " ++ show n ++ " in hex string: " ++ hexStr
 
 encodeHex :: WriterT String Get ()
 encodeHex = do
@@ -85,9 +82,36 @@ encodeBase64 = do
       nread <- lift bytesRead
       let padLen = mod (fromIntegral nread) 3
       tell $ take padLen (repeat '=')
-         
+
+
+decodeBase64 :: String -> Put
+decodeBase64 b64 = B.runBitPut (decode b64)
+  where
+    toByte '=' = fail $ "Illegally placed '=' in base64 string: " ++ b64
+    toByte c | c >= 'A' && c <= 'Z' = return $ fromIntegral $ ord c - ord 'A'
+    toByte c | c >= 'a' && c <= 'z' = return $ fromIntegral $ ord c - ord 'a' + 26
+    toByte c | c >= '0' && c <= '9' = return $ fromIntegral $ ord c - ord '0' + 52
+    toByte '+' = return 62
+    toByte '/' = return 63
+    toByte c = fail $ "Illegal base64 char " ++ show c ++ " in base64 string: " ++ b64
+    putB64 c = toByte c >>= B.putWord8 6
+    decode [] = return ()
+    decode [_] = fail $ "Irregularly truncated base64 string: " ++ b64
+    decode [c1, c2] = putB64 c1 >> putB64 c2
+    decode [c1, c2, c3] = putB64 c1 >> putB64 c2 >> putB64 c3
+    decode [c1, c2, '=', '='] = putB64 c1 >> putB64 c2
+    decode [c1, c2, c3, '='] = putB64 c1 >> putB64 c2 >> putB64 c3
+    decode (c1:c2:c3:c4:rest) = putB64 c1 >> putB64 c2 >> putB64 c3 >> putB64 c4 >> decode rest
+
+
 toBase64 :: ByteString -> String
 toBase64 bs = let (_, b64str) = runGet (evalRWST encodeBase64 () (0,0)) bs in b64str
 
+fromBase64 :: String -> ByteString
+fromBase64 b64 = runPut $ decodeBase64 b64
+
 hexToBase64 :: String -> String
 hexToBase64 = toBase64 . fromHex
+
+base64ToHex :: String -> String
+base64ToHex = toHex . fromBase64
