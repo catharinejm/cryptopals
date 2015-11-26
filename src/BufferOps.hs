@@ -27,17 +27,18 @@ frequencies str = foldr (M.alter inc) M.empty str
     inc (Just n) = Just $ n+1
 
 englishScore :: BS.ByteString -> Int
-englishScore bs = foldl' (\s l -> s + score l) 0 chars
+englishScore bs = sumScores orderedChars 0 0
   where
     chars = map toLower $ CS.unpack bs
     freq = frequencies chars
-    orderedChars = V.fromList $ filter (flip elem engLetterOrder) $ sortOn (negate . (freq M.!)) (M.keys freq)
-    engLetterOrder = "etaoin shrdlu"
+    orderedChars = filter (flip elem engLetterOrder) $ sortOn (negate . (freq M.!)) (M.keys freq)
+    engLetterOrder = "etaoin shrdlcumwfgypbvkjxqz"
     usedEngLetters = V.fromList $ filter (flip M.member freq) engLetterOrder
-    score l = let idx = V.elemIndex l
-              in case fmap (-) (idx orderedChars) <*> (idx usedEngLetters) of
-                  Nothing -> 0
-                  Just s -> length usedEngLetters - abs s
+    sumScores [] sum _ = sum
+    sumScores (r:rs) sum idx =
+      case V.elemIndex r usedEngLetters of
+       Nothing -> sumScores rs (sum + length engLetterOrder) idx
+       Just i -> sumScores rs (sum + abs (idx - i)) (idx + 1)
 
 
 findOneByteKey :: BS.ByteString -> (Word8, String)
@@ -49,7 +50,7 @@ findOneByteKey bs = (key, CS.unpack decoded)
                    score = englishScore res
                in (score, res)
     (_, key, decoded) = foldr (\b best@(s,_,_) -> let (s',res) = tryKey b
-                                                  in if s' > s
+                                                  in if s' < s
                                                      then (s', b, res)
                                                      else best)
                         (0,0,BS.empty) [0..255]

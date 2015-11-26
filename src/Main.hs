@@ -2,6 +2,7 @@ module Main where
 
 import qualified Set1
 import BufferOps
+import FileUtils
 import qualified Data.ByteString.Lazy.Char8 as CS
 
 main :: IO ()

@@ -4,8 +4,11 @@ module Set1 where
 
 import TextEncodings
 import BufferOps
+import FileUtils
 import Data.List (intercalate)
 import Data.Char (chr)
+import qualified Data.ByteString.Lazy as BS
+import qualified Data.ByteString.Lazy.Char8 as CS
 
 data Challenge = Challenge { chalNum :: Int
                            , chalExpected :: String
@@ -48,9 +51,21 @@ challenge3 = output
                               , "" -- extra newline
                               ]
 
+challenge4 :: IO ()
+challenge4 = do
+  key <- findOneByteFileKey "data/set1.4.txt"
+  bytes <- decodeHexFile "data/set1.4.txt"
+  let decoded = xorBuffers bytes $ BS.pack $ (take $ fromIntegral $ BS.length bytes) $ repeat key
+  putStrLn   "  Challenge 4:"
+  putStrLn $ "    Key Byte: " ++ (show $ chr $ fromIntegral key)
+  putStrLn   "    Output:"
+  putStrLn $ CS.unpack decoded
+  putStrLn ""
+
 run :: IO ()
 run = do
   putStrLn "Set 1:"
   print challenge1
   print challenge2
   putStrLn challenge3
+  challenge4
