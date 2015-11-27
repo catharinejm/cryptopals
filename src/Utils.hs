@@ -1,19 +1,14 @@
-module FileUtils where
+module Utils where
 
-import System.IO
-import Data.ByteString.Lazy (ByteString)
+import           BufferOps
+import           Control.Monad.Writer
+import           Data.ByteString.Lazy (ByteString)
 import qualified Data.ByteString.Lazy as BS
-import Control.Monad.Writer
-import Data.Word
-
-import TextEncodings
-import BufferOps
-
-findOneByteFileKey :: FilePath -> IO Word8
-findOneByteFileKey filename =
-  liftM fst $ withFile filename ReadMode search
-  where
-    search h = liftM (findOneByteKey . fromHex) $ hGetLine h
+import qualified Data.Map as M
+import           Data.Map.Strict (Map)
+import           Data.Word
+import           System.IO
+import           TextEncodings
 
 decodeHexFile :: FilePath -> IO ByteString
 decodeHexFile filename =
@@ -29,3 +24,10 @@ decodeHexFile filename =
                 let bs = fromHex line
                 tell bs
                 decodeWriter h
+
+
+frequencies :: Ord a => [a] -> Map a Int
+frequencies lis = foldr (M.alter inc) M.empty lis
+  where
+    inc Nothing = Just 1
+    inc (Just n) = Just $ n+1
