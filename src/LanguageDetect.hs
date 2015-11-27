@@ -14,18 +14,18 @@ import           Types
 import           Utils
 
 
-englishCharacters :: String
-englishCharacters = [ ' ', 'e',  't', 'a',  'o', 'i', 'n'
-                    , 's', 'r',  'h', 'l',  'd', 'c', 'u'
-                    , 'm', 'f',  'g', 'p',  'y', 'w', '\n'
-                    , 'b', ',',  '.', 'v',  'k', '-', '"'
-                    , '_', '\'', 'x', ')',  '(', ';', '0'
-                    , 'j', '1',  'q', '=',  '2', ':', 'z'
-                    , '/', '*',  '!', '?',  '$', '3', '5'
-                    , '>', '{',  '}', '4',  '9', '[', ']'
-                    , '8', '6',  '7', '\\', '+', '|', '&'
-                    , '<', '%',  '@', '#',  '^', '`', '~'
-                    ]
+englishCharacters :: V.Vector Char
+englishCharacters = V.fromList [ ' ', 'e',  't', 'a',  'o', 'i', 'n'
+                               , 's', 'r',  'h', 'l',  'd', 'c', 'u'
+                               , 'm', 'f',  'g', 'p',  'y', 'w', '\n'
+                               , 'b', ',',  '.', 'v',  'k', '-', '"'
+                               , '_', '\'', 'x', ')',  '(', ';', '0'
+                               , 'j', '1',  'q', '=',  '2', ':', 'z'
+                               , '/', '*',  '!', '?',  '$', '3', '5'
+                               , '>', '{',  '}', '4',  '9', '[', ']'
+                               , '8', '6',  '7', '\\', '+', '|', '&'
+                               , '<', '%',  '@', '#',  '^', '`', '~'
+                               ]
 
 
 englishScore :: ByteString -> Int
@@ -34,11 +34,10 @@ englishScore bs = sumScores orderedChars 0 0
     chars = map toLower $ CS.unpack bs
     freq = frequencies chars
     orderedChars = sortOn (negate . (freq M.!)) (M.keys freq)
-    usedEngLetters = V.fromList $ filter (flip M.member freq) englishCharacters
     sumScores [] sum _ = sum
     sumScores (r:rs) sum idx =
-      case V.elemIndex r usedEngLetters of
-       Nothing -> sumScores rs (sum + 100) idx
+      case V.elemIndex r englishCharacters of
+       Nothing -> sumScores rs (sum + (length englishCharacters - idx)) idx
        Just i -> sumScores rs (sum + abs (idx - i)) (idx + 1)
 
 
@@ -49,5 +48,15 @@ scoreKey bs key = LanguageScore (chr (fromIntegral key)) (englishScore decoded) 
     decoded = xorBuffers bs $ BS.pack $ take len $ repeat key
 
 
+bestScoreWithIndex :: [LanguageScore] -> (Int, LanguageScore)
+bestScoreWithIndex = minimumBy compareScores . zip [0..]
+  where
+    compareScores (_, ls1) (_, ls2) = compare (lsScore ls1) (lsScore ls2)
+
+
+bestScore :: [LanguageScore] -> LanguageScore
+bestScore = snd . bestScoreWithIndex
+
+
 findOneByteKey :: ByteString -> LanguageScore
-findOneByteKey bs = minimumBy compareScores $ map (scoreKey bs) [0..255]
+findOneByteKey bs = bestScore $ map (scoreKey bs) [0..255]

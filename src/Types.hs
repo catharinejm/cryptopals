@@ -7,6 +7,3 @@ data LanguageScore = LanguageScore { lsKey     :: !Char
                                    , lsDecoded :: !ByteString
                                    }
                    deriving (Show)
-
-compareScores :: LanguageScore -> LanguageScore -> Ordering
-compareScores ls1 ls2 = compare (lsScore ls1) (lsScore ls2)

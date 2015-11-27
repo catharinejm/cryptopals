@@ -4,6 +4,7 @@ module Set1 where
 
 import           BufferOps
 import           Control.Monad
+import           Control.Monad.Writer.Lazy
 import           Data.ByteString.Lazy (ByteString)
 import qualified Data.ByteString.Lazy as BS
 import qualified Data.ByteString.Lazy.Char8 as CS
@@ -68,17 +69,32 @@ printAllScores input = mapM_ print scores
     scores = map (scoreKey input) [0..255]
 
 
--- challenge4 :: IO ()
--- challenge4 = do
---   (Word8, String) <- findLine
---   where
---     file = "data/set1.4.txt"
+challenge4 :: IO ()
+challenge4 = do
+  (lineNum, LanguageScore key score decoded) <- pickLine
+  putStrLn   "  Challenge 4:"
+  putStrLn $ "    Line Number: " ++ show (lineNum + 1)
+  putStrLn $ "    Key: " ++ [key]
+  putStrLn $ "    Output: " ++ CS.unpack decoded
+  putStrLn ""
+  where
+    filename = "data/set1.4.txt"
+    pickLine = liftM bestScoreWithIndex scoreLines
+    scoreLines = withFile filename ReadMode scoreLine
+    scoreLine h = execWriterT doScore
+      where
+        doScore = do
+          eof <- lift $ hIsEOF h
+          when (not eof) $ do
+            line <- lift $ hGetLine h
+            tell [findOneByteKey $ fromHex line]
+            doScore
+
 
 run :: IO ()
 run = do
   putStrLn "Set 1:"
   print challenge1
   print challenge2
-  printAllScores $ fromHex "1b37373331363f78151b7f2b783431333d78397828372d363c78373e783a393b3736"
-  -- putStrLn challenge3
-  -- challenge4
+  putStrLn challenge3
+  challenge4
