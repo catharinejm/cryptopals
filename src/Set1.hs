@@ -10,7 +10,7 @@ import qualified Data.ByteString.Lazy as BS
 import qualified Data.ByteString.Lazy.Char8 as CS
 import           Data.Char (chr)
 import           Data.List (intercalate)
-import           LanguageDetect
+import           KeyDetect
 import           System.CPUTime
 import           System.IO
 import           TextEncodings

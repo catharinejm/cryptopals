@@ -1,4 +1,4 @@
-module LanguageDetect where
+module KeyDetect where
 
 import           BufferOps
 import           Data.ByteString.Lazy (ByteString)
