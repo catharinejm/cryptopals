@@ -11,6 +11,7 @@ import qualified Data.ByteString.Lazy.Char8 as CS
 import           Data.Char (chr)
 import           Data.List (intercalate)
 import           LanguageDetect
+import           System.CPUTime
 import           System.IO
 import           TextEncodings
 import           Types
@@ -23,13 +24,13 @@ data Challenge = Challenge { chalNum :: Int
 
 instance Show Challenge where
   show Challenge { chalNum, chalExpected, chalActual } =
-    intercalate "\n" [ "  Challenge " ++ show chalNum ++ ":"
-                     , "    Expected: " ++ chalExpected
-                     , "    Actual:   " ++ chalActual
-                     , if (chalExpected == chalActual)
-                       then "      Passed\n"
-                       else "      FAILED\n"
-                     ]
+    unlines [ "  Challenge " ++ show chalNum ++ ":"
+            , "    Expected: " ++ chalExpected
+            , "    Actual:   " ++ chalActual
+            , if (chalExpected == chalActual)
+              then "      Passed"
+              else "      FAILED"
+            ]
 
 
 challenge1 :: Challenge
@@ -54,11 +55,10 @@ challenge3 = output
   where
     input = "1b37373331363f78151b7f2b783431333d78397828372d363c78373e783a393b3736"
     LanguageScore key _ decoded = findOneByteKey $ fromHex input
-    output = intercalate "\n" [ "  Challenge 3:"
-                              , "    Key Byte: " ++ [key]
-                              , "    Output:   " ++ CS.unpack decoded
-                              , "" -- extra newline
-                              ]
+    output = unlines [ "  Challenge 3:"
+                     , "    Key:    " ++ show key
+                     , "    Output: " ++ show decoded
+                     ]
 
 
 printAllScores :: ByteString -> IO ()
@@ -71,12 +71,16 @@ printAllScores input = mapM_ print scores
 
 challenge4 :: IO ()
 challenge4 = do
-  (lineNum, LanguageScore key score decoded) <- pickLine
-  putStrLn   "  Challenge 4:"
-  putStrLn $ "    Line Number: " ++ show (lineNum + 1)
-  putStrLn $ "    Key: " ++ [key]
-  putStrLn $ "    Output: " ++ CS.unpack decoded
-  putStrLn ""
+  start <- getCPUTime
+  (lineNum, ls@(LanguageScore key score decoded)) <- pickLine
+  let _ = seq ls undefined
+  end <- getCPUTime
+  putStrLn $ unlines [ "  Challenge 4:"
+                     , "    Line:   " ++ show (lineNum + 1)
+                     , "    Key:    " ++ show key
+                     , "    Output: " ++ show decoded
+                     , "    Time:   " ++ show ((fromIntegral (end - start)) / 1000000000) ++ "ms"
+                     ]
   where
     filename = "data/set1.4.txt"
     pickLine = liftM bestScoreWithIndex scoreLines
