@@ -8,6 +8,7 @@ import           Data.Binary.Get
 import           Data.Bits
 import           Data.ByteString.Lazy (ByteString)
 import qualified Data.ByteString.Lazy as BS
+import           Data.Int
 import           Data.Maybe
 import           Data.Word
 
@@ -28,17 +29,11 @@ hammingDistance :: ByteString -> ByteString -> Int
 hammingDistance = curry $ sum . map popCount . combineBuffers xor
 
 
-sliceBuffer :: Int -> Int -> ByteString -> ByteString
-sliceBuffer cnt idx buf = BS.pack $ runGet (execWriterT doSlice) buf
-  where
-    doSlice = do
-      s <- lift $ getUpto cnt []
-      case listToMaybe $ drop idx s of
-       Nothing -> return ()
-       Just b -> tell [b] >> doSlice
-    getUpto n bs = do
-      empty <- isEmpty
-      if n == 0 || empty
-        then return $ reverse bs
-        else do b <- getWord8
-                getUpto (n-1) (b:bs)
+groupedBuffer :: Int64 -> ByteString -> [ByteString]
+groupedBuffer 0 _ = []
+groupedBuffer _ buf | BS.null buf = []
+groupedBuffer n buf = BS.take n buf : groupedBuffer n (BS.drop n buf)
+
+
+transposeBuffer :: Int64 -> ByteString -> [ByteString]
+transposeBuffer n buf = BS.transpose $ groupedBuffer n buf

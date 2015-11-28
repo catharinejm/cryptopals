@@ -56,7 +56,7 @@ challenge3 = output
     input = "1b37373331363f78151b7f2b783431333d78397828372d363c78373e783a393b3736"
     LanguageScore key _ decoded = findOneByteKey $ fromHex input
     output = unlines [ "  Challenge 3:"
-                     , "    Key:    " ++ show key
+                     , "    Key:    " ++ show (chr (fromIntegral key))
                      , "    Output: " ++ show decoded
                      ]
 
@@ -77,7 +77,7 @@ challenge4 = do
   end <- getCPUTime
   putStrLn $ unlines [ "  Challenge 4:"
                      , "    Line:   " ++ show (lineNum + 1)
-                     , "    Key:    " ++ show key
+                     , "    Key:    " ++ show (chr (fromIntegral key))
                      , "    Output: " ++ show decoded
                      , "    Time:   " ++ show ((fromIntegral (end - start)) / 1000000000) ++ "ms"
                      ]
@@ -108,9 +108,12 @@ challenge5 =
 challenge6 :: IO ()
 challenge6 = do
   bytes <- decodeBase64File filename
-  let keySize = findKeySize bytes
+  let key = findMultibyteKey bytes
+      decoded = repeatingKeyXor key bytes
   putStrLn $ unlines [ "  Challenge 6:"
-                     , "    Key Size: " ++ show keySize
+                     , "    Key: " ++ show key
+                     , "    Decoded:"
+                     , show decoded
                      ]
   where
     filename = "data/set1.6.txt"

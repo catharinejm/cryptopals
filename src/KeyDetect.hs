@@ -43,7 +43,7 @@ englishScore bs = sumScores orderedChars 0 0
 
 
 scoreKey :: ByteString -> Word8 -> LanguageScore
-scoreKey bs key = LanguageScore (chr (fromIntegral key)) (englishScore decoded) decoded
+scoreKey bs key = LanguageScore key (englishScore decoded) decoded
   where
     len = fromIntegral $ BS.length bs
     decoded = xorBuffers bs $ BS.pack $ take len $ repeat key
@@ -64,9 +64,19 @@ findOneByteKey bs = bestScore $ map (scoreKey bs) [0..255]
 findKeySize :: ByteString -> Int
 findKeySize bs = fst $ minimumWith snd scores
   where
-    groupsOf n l = BS.take n l : groupsOf n (BS.drop n l)
-    score n = let (hd:tl) = groupsOf (fromIntegral n) bs
+    score n = let (hd:tl) = groupedBuffer (fromIntegral n) bs
                   tot = sum $ map (hammingDistance hd) (take 3 tl)
               in (fromIntegral tot) / (fromIntegral n)
     sizes = [2..40]
     scores = zip sizes $ map score sizes
+
+
+buildKey :: Int -> ByteString -> ByteString
+buildKey keySize bs = BS.pack $ map keyByte bufs
+  where
+    bufs = transposeBuffer (fromIntegral keySize) bs
+    keyByte buf = let LanguageScore key _ _ = findOneByteKey buf in key
+
+
+findMultibyteKey :: ByteString -> ByteString
+findMultibyteKey buf = buildKey (findKeySize buf) buf
