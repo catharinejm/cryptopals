@@ -80,7 +80,7 @@ encodeBase64 = do
     b64chars = V.fromList $ ['A'..'Z']++['a'..'z']++['0'..'9']++['+','/']
     pad = do
       nread <- lift bytesRead
-      let padLen = mod (fromIntegral nread) 3
+      let padLen = (fromIntegral $ negate nread) `mod` 3
       tell $ take padLen (repeat '=')
 
 
@@ -95,12 +95,13 @@ decodeBase64 b64 = B.runBitPut (decode b64)
     toByte '/' = return 63
     toByte c = fail $ "Illegal base64 char " ++ show c ++ " in base64 string: " ++ b64
     putB64 c = toByte c >>= B.putWord8 6
+    putThird c = toByte c >>= (B.putWord8 4) . (`shiftR` 2)
     decode [] = return ()
     decode [_] = fail $ "Irregularly truncated base64 string: " ++ b64
     decode [c1, c2] = putB64 c1 >> putB64 c2
-    decode [c1, c2, c3] = putB64 c1 >> putB64 c2 >> putB64 c3
+    decode [c1, c2, c3] = putB64 c1 >> putB64 c2 >> putThird c3
     decode [c1, c2, '=', '='] = putB64 c1 >> putB64 c2
-    decode [c1, c2, c3, '='] = putB64 c1 >> putB64 c2 >> putB64 c3
+    decode [c1, c2, c3, '='] = putB64 c1 >> putB64 c2 >> putThird c3
     decode (c1:c2:c3:c4:rest) = putB64 c1 >> putB64 c2 >> putB64 c3 >> putB64 c4 >> decode rest
 
 

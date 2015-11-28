@@ -120,7 +120,7 @@ challenge6 = do
   putStrLn $ unlines [ "  Challenge 6:"
                      , "    Key: " ++ show key
                      , "    Decoded:"
-                     , show decoded
+                     , CS.unpack decoded
                      ]
   where
     filename = "data/set1.6.txt"
