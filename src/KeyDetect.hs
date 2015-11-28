@@ -61,21 +61,31 @@ findOneByteKey :: ByteString -> LanguageScore
 findOneByteKey bs = bestScore $ map (scoreKey bs) [0..255]
 
 
+scoreKeysize :: Fractional a => ByteString -> Int -> a
+scoreKeysize buf keySize = total / fromIntegral sampleSize
+  where
+    sampleSize = 4
+    keys = take sampleSize $ groupedBuffer (fromIntegral keySize) buf
+    avgDist sample@(k:ks) =
+      foldr (\k' s -> s + kDist k k') 0 ks / (fromIntegral $ length sample)
+    kDist = curry $ (/ (fromIntegral keySize)) . fromIntegral . uncurry hammingDistance
+    distances [_] = []
+    distances ks = avgDist ks : distances (tail ks)
+    total = sum $ distances keys
+
+
 findKeySize :: ByteString -> Int
 findKeySize bs = fst $ minimumWith snd scores
   where
-    score n = let (hd:tl) = groupedBuffer (fromIntegral n) bs
-                  tot = sum $ map (hammingDistance hd) (take 3 tl)
-              in (fromIntegral tot) / (fromIntegral n)
     sizes = [2..40]
-    scores = zip sizes $ map score sizes
+    scores = zip sizes $ map (scoreKeysize bs) sizes
 
 
 buildKey :: Int -> ByteString -> ByteString
 buildKey keySize bs = BS.pack $ map keyByte bufs
   where
     bufs = transposeBuffer (fromIntegral keySize) bs
-    keyByte buf = let LanguageScore key _ _ = findOneByteKey buf in key
+    keyByte = lsKey . findOneByteKey
 
 
 findMultibyteKey :: ByteString -> ByteString

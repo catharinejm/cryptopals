@@ -94,6 +94,7 @@ challenge4 = do
             tell [findOneByteKey $ fromHex line]
             doScore
 
+
 challenge5 :: IO ()
 challenge5 =
   print $ Challenge 5 expected actual
@@ -104,6 +105,12 @@ challenge5 =
                "a282b2f20430a652e2c652a3124333a653e2b2027630c692b20283165286326302e27282f"
     actual = toHex $ repeatingKeyXor (CS.pack "ICE") (CS.pack input)
   
+
+printKeyScores :: ByteString -> IO ()
+printKeyScores buf = do
+  let sizes = [2..40]
+      scores = zip sizes $ map (scoreKeysize buf) sizes
+  mapM_ print scores
 
 challenge6 :: IO ()
 challenge6 = do
