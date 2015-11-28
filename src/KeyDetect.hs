@@ -5,6 +5,7 @@ import           Data.ByteString.Lazy (ByteString)
 import qualified Data.ByteString.Lazy as BS
 import qualified Data.ByteString.Lazy.Char8 as CS
 import           Data.Char
+import           Data.Int
 import           Data.List
 import qualified Data.Map as M
 import           Data.Map.Strict (Map)
@@ -49,9 +50,7 @@ scoreKey bs key = LanguageScore (chr (fromIntegral key)) (englishScore decoded) 
 
 
 bestScoreWithIndex :: [LanguageScore] -> (Int, LanguageScore)
-bestScoreWithIndex = minimumBy compareScores . zip [0..]
-  where
-    compareScores (_, ls1) (_, ls2) = compare (lsScore ls1) (lsScore ls2)
+bestScoreWithIndex = minimumWith (lsScore . snd) . zip [0..]
 
 
 bestScore :: [LanguageScore] -> LanguageScore
@@ -60,3 +59,14 @@ bestScore = snd . bestScoreWithIndex
 
 findOneByteKey :: ByteString -> LanguageScore
 findOneByteKey bs = bestScore $ map (scoreKey bs) [0..255]
+
+
+findKeySize :: ByteString -> Int
+findKeySize bs = fst $ minimumWith snd scores
+  where
+    groupsOf n l = BS.take n l : groupsOf n (BS.drop n l)
+    score n = let (hd:tl) = groupsOf (fromIntegral n) bs
+                  tot = sum $ map (hammingDistance hd) (take 3 tl)
+              in (fromIntegral tot) / (fromIntegral n)
+    sizes = [2..40]
+    scores = zip sizes $ map score sizes

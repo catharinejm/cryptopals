@@ -105,6 +105,16 @@ challenge5 =
     actual = toHex $ repeatingKeyXor (CS.pack "ICE") (CS.pack input)
   
 
+challenge6 :: IO ()
+challenge6 = do
+  bytes <- decodeBase64File filename
+  let keySize = findKeySize bytes
+  putStrLn $ unlines [ "  Challenge 6:"
+                     , "    Key Size: " ++ show keySize
+                     ]
+  where
+    filename = "data/set1.6.txt"
+
 
 run :: IO ()
 run = do
@@ -114,3 +124,4 @@ run = do
   putStrLn challenge3
   challenge4
   challenge5
+  challenge6
