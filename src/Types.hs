@@ -1,7 +1,25 @@
+{-# LANGUAGE NamedFieldPuns #-}
+
 module Types where
 
 import Data.ByteString.Lazy (ByteString)
 import Data.Word
+
+data Challenge = Challenge { chalNum      :: !Int
+                           , chalExpected :: !String
+                           , chalActual   :: !String
+                           }
+
+instance Show Challenge where
+  show Challenge { chalNum, chalExpected, chalActual } =
+    unlines [ "  Challenge " ++ show chalNum ++ ":"
+            , "    Expected: " ++ chalExpected
+            , "    Actual:   " ++ chalActual
+            , if (chalExpected == chalActual)
+              then "      Passed"
+              else "      FAILED"
+            ]
+
 
 data LanguageScore = LanguageScore { lsKey     :: !Word8
                                    , lsScore   :: !Int

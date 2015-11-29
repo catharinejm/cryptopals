@@ -90,3 +90,7 @@ buildKey keySize bs = BS.pack $ map keyByte bufs
 
 findMultibyteKey :: ByteString -> ByteString
 findMultibyteKey buf = buildKey (findKeySize buf) buf
+
+
+isECBEncoded :: ByteString -> Bool
+isECBEncoded buf = scoreKeysize buf 16 < 0.5

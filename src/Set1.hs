@@ -10,7 +10,8 @@ import           Data.ByteString.Lazy (ByteString)
 import qualified Data.ByteString.Lazy as BS
 import qualified Data.ByteString.Lazy.Char8 as CS
 import           Data.Char (chr)
-import           Data.List (intercalate)
+import           Data.Function
+import           Data.List
 import           KeyDetect
 import           System.CPUTime
 import           System.IO
@@ -18,41 +19,28 @@ import           TextEncodings
 import           Types
 import           Utils
 
-data Challenge = Challenge { chalNum :: Int
-                           , chalExpected :: String
-                           , chalActual :: String
-                           }
 
-instance Show Challenge where
-  show Challenge { chalNum, chalExpected, chalActual } =
-    unlines [ "  Challenge " ++ show chalNum ++ ":"
-            , "    Expected: " ++ chalExpected
-            , "    Actual:   " ++ chalActual
-            , if (chalExpected == chalActual)
-              then "      Passed"
-              else "      FAILED"
-            ]
-
-
-challenge1 :: Challenge
-challenge1 = Challenge 2 expected actual
+challenge1 :: IO ()
+challenge1 = print chal
   where
+    chal = Challenge 2 expected actual
     hex = "49276d206b696c6c696e6720796f757220627261696e206c696b65206120706f69736f6e6f7573206d757368726f6f6d"
     expected = "SSdtIGtpbGxpbmcgeW91ciBicmFpbiBsaWtlIGEgcG9pc29ub3VzIG11c2hyb29t"
     actual = hexToBase64 hex
 
 
-challenge2 :: Challenge
-challenge2 = Challenge 1 expected actual
+challenge2 :: IO ()
+challenge2 = print chal
   where
+    chal = Challenge 1 expected actual
     expected = "746865206b696420646f6e277420706c6179"
     val1 = fromHex "1c0111001f010100061a024b53535009181c"
     val2 = fromHex "686974207468652062756c6c277320657965"
     actual = toHex $ xorBuffers val1 val2
 
 
-challenge3 :: String
-challenge3 = output
+challenge3 :: IO ()
+challenge3 = putStrLn output
   where
     input = "1b37373331363f78151b7f2b783431333d78397828372d363c78373e783a393b3736"
     LanguageScore key _ decoded = findOneByteKey $ fromHex input
@@ -153,13 +141,32 @@ challenge7 = do
     decrypt = decodeBase64File filename >>= return . decryptECB key
 
 
+challenge8 :: IO ()
+challenge8 = do
+  scores <- withFile filename ReadMode (execWriterT . collectScores)
+  let probableLine = minimumBy (compare `on` snd) $ zip [1..] scores
+  putStrLn $ unlines [ "  Challenge 8:"
+                     , "    Line " ++ show (fst probableLine) ++ " is probably ECB"
+                     ]
+  where
+    filename = "data/set1.8.txt"
+    collectScores :: Fractional a => Handle -> WriterT [a] IO ()
+    collectScores h = do
+      eof <- lift $ hIsEOF h
+      when (not eof) $ do
+        line <- lift $ hGetLine h
+        tell [scoreKeysize (fromHex line) 16]
+        collectScores h
+
+
 run :: IO ()
 run = do
   putStrLn "Set 1:"
-  print challenge1
-  print challenge2
-  putStrLn challenge3
+  challenge1
+  challenge2
+  challenge3
   challenge4
   challenge5
   challenge6
   challenge7
+  challenge8

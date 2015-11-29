@@ -45,3 +45,11 @@ frequencies lis = foldr (M.alter inc) M.empty lis
 
 minimumWith :: Ord b => (a -> b) -> [a] -> a
 minimumWith f = minimumBy (\x y -> f x `compare` f y)
+
+
+juxt :: (a -> b) -> (a -> c) -> a -> (b, c)
+juxt f g x = (f x, g x)
+
+
+juxt3 :: (a -> b) -> (a -> c) -> (a -> d) -> a -> (b, c, d)
+juxt3 f g h x = (f x, g x, h x)
