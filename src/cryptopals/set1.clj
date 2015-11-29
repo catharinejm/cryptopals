@@ -103,7 +103,7 @@
                          (completing best-distance)
                          [:NO-LINE Double/POSITIVE_INFINITY]
                          lines)]
-    (.indexOf ^java.util.List (vec lines) (apply str (sequence bytes->hex* (first guess))))))
+    (inc (.indexOf ^java.util.List (vec lines) (apply str (sequence bytes->hex* (first guess)))))))
 
 (defn challenge1
   []
@@ -135,9 +135,11 @@
   (let [expected {:hex "7b5a4215415d544115415d5015455447414c155c46155f4058455c5b523f"
                   :result "Now that the party is jumping\n"
                   :cipher \5}
-        result (find-encoded-hex "resources/4.txt")]
+        before (System/nanoTime)
+        result (find-encoded-hex "resources/4.txt")
+        after (System/nanoTime)]
     (assert (= expected (select-keys result (keys expected))))
-    result))
+    (assoc result :time (double (/ (- after before) 1000000)))))
 
 (defn challenge5
   []
