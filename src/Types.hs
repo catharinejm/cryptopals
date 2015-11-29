@@ -2,8 +2,9 @@
 
 module Types where
 
-import Data.ByteString.Lazy (ByteString)
-import Data.Word
+import qualified Crypto.Cipher.AES as AES
+import           Data.ByteString.Lazy (ByteString)
+import           Data.Word
 
 data Challenge = Challenge { chalNum      :: !Int
                            , chalExpected :: !String
@@ -26,3 +27,5 @@ data LanguageScore = LanguageScore { lsKey     :: !Word8
                                    , lsDecoded :: !ByteString
                                    }
                    deriving (Show)
+
+type AESKey = AES.AES

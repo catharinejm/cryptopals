@@ -15,6 +15,10 @@ challenge9 = print chal
     actual = CS.unpack $ pkcs7Pad 20 input
 
 
+challenge10 :: IO ()
+challenge10 =
+
+
 run :: IO ()
 run = do
   putStrLn "Set 2:"
