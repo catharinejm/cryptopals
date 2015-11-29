@@ -3,6 +3,7 @@
 module Set1 where
 
 import           BufferOps
+import           Cipher
 import           Control.Monad
 import           Control.Monad.Writer.Lazy
 import           Data.ByteString.Lazy (ByteString)
@@ -112,6 +113,17 @@ printKeyScores buf = do
       scores = zip sizes $ map (scoreKeysize buf) sizes
   mapM_ print scores
 
+
+truncateOutput :: String -> String
+truncateOutput input = unlines trunc
+  where
+    inLines = lines input
+    trunc = if length inLines > 6
+            then take 3 inLines ++ ["..."] ++ lastN 3 inLines
+            else inLines
+    lastN n l = drop (length l - n) l
+
+
 challenge6 :: IO ()
 challenge6 = do
   bytes <- decodeBase64File filename
@@ -120,10 +132,25 @@ challenge6 = do
   putStrLn $ unlines [ "  Challenge 6:"
                      , "    Key: " ++ show key
                      , "    Decoded:"
-                     , CS.unpack decoded
+                     , truncateOutput $ CS.unpack decoded
                      ]
   where
     filename = "data/set1.6.txt"
+
+
+challenge7 :: IO ()
+challenge7 = do
+  decrypted <- decrypt
+  putStrLn $ unlines [ "  Challenge 7:"
+                     , "    Key: " ++ keyStr
+                     , "    Decrypted:"
+                     , truncateOutput $ CS.unpack decrypted
+                     ]
+  where
+    filename = "data/set1.7.txt"
+    keyStr = "YELLOW SUBMARINE"
+    key = initAES $ CS.pack keyStr
+    decrypt = decodeBase64File filename >>= return . decryptECB key
 
 
 run :: IO ()
@@ -135,3 +162,4 @@ run = do
   challenge4
   challenge5
   challenge6
+  challenge7
