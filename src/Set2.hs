@@ -1,8 +1,10 @@
 module Set2 where
 
 import           Cipher
+import           Control.Monad
 import qualified Data.ByteString.Lazy as BS
 import qualified Data.ByteString.Lazy.Char8 as CS
+import           Oracle
 import           Types
 import           Utils
 
@@ -22,10 +24,32 @@ challenge10 = do
   let dec = decryptCBC (initAES $ CS.pack "YELLOW SUBMARINE") (BS.pack $ take 16 $ repeat 0) bytes
   putStrLn $ unlines [ "  Challenge 10:"
                      , "    Decrypted:"
-                     , truncateOutput $ CS.unpack dec
+                     , elideOutput $ CS.unpack dec
                      ]
   where
     filename = "data/set2.10.txt"
+
+
+challenge11 :: IO ()
+challenge11 = do
+  tests <- replicateM 1000 verifyDetection
+  let correct = length $ filter id tests
+      wrong = length tests - correct
+      accuracy = fromIntegral correct / fromIntegral (length tests)
+  putStrLn $ unlines [ "  Challenge 11:"
+                     , "    Correct Guesses:   " ++ show correct
+                     , "    Incorrect Guesses: " ++ show wrong
+                     , "    Accuracy:          " ++ show accuracy
+                     , if accuracy > (99 / 100)
+                       then "      Passed"
+                       else "      FAILED"
+                     ]
+  where
+    verifyDetection = do
+      (cType, cFn) <- randomCipher
+      encrypter <- randomEncrypter cFn
+      let guess = detectCipher encrypter
+      return (cType == guess)
 
 
 run :: IO ()
@@ -33,3 +57,4 @@ run = do
   putStrLn "Set 2:"
   challenge9
   challenge10
+  challenge11

@@ -110,7 +110,7 @@ challenge6 = do
   putStrLn $ unlines [ "  Challenge 6:"
                      , "    Key: " ++ show key
                      , "    Decoded:"
-                     , truncateOutput $ CS.unpack decoded
+                     , elideOutput $ CS.unpack decoded
                      ]
   where
     filename = "data/set1.6.txt"
@@ -122,7 +122,7 @@ challenge7 = do
   putStrLn $ unlines [ "  Challenge 7:"
                      , "    Key: " ++ keyStr
                      , "    Decrypted:"
-                     , truncateOutput $ CS.unpack decrypted
+                     , elideOutput $ CS.unpack decrypted
                      ]
   where
     filename = "data/set1.7.txt"

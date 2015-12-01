@@ -55,11 +55,28 @@ juxt3 :: (a -> b) -> (a -> c) -> (a -> d) -> a -> (b, c, d)
 juxt3 f g h x = (f x, g x, h x)
 
 
-truncateOutput :: String -> String
-truncateOutput input = unlines trunc
+pair :: a -> b -> (a, b)
+pair a b = (a, b)
+
+
+list :: a -> [a]
+list = (: [])
+
+
+hasDupes :: Ord a => [a] -> Bool
+hasDupes = checkDupes . sort
+  where
+    checkDupes [] = False
+    checkDupes [_] = False
+    checkDupes (x:y:zs) = x == y || checkDupes (y:zs)
+
+
+elideOutput :: String -> String
+elideOutput input = unlines trunc
   where
     inLines = lines input
+    truncMsg = "[ ... " ++ show (length inLines - 6) ++ " lines elided ... ]"
     trunc = if length inLines > 6
-            then take 3 inLines ++ ["..."] ++ lastN 3 inLines
+            then take 3 inLines ++ [truncMsg] ++ lastN  3 inLines
             else inLines
     lastN n l = drop (length l - n) l

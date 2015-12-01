@@ -3,6 +3,7 @@ module Main where
 import           BufferOps
 import           Control.Monad
 import qualified Data.ByteString.Lazy.Char8 as CS
+import           Oracle
 import qualified Set1
 import qualified Set2
 import           System.Environment
