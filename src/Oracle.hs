@@ -55,9 +55,15 @@ randomEncrypter :: CipherFunc -> IO CipherFunc
 randomEncrypter cipher = do
   prefix <- randomPad
   suffix <- randomPad
-  return (\buf -> cipher $ pkcs7Pad blockLength $ BS.concat [prefix, buf, suffix])
+  return (\buf -> cipher $ BS.concat [prefix, buf, suffix])
   where
     randomPad = randomInt (5, 10) >>= randomBytes . fromIntegral
+
+
+prependingEncrypter :: ByteString -> IO CipherFunc
+prependingEncrypter buf = do
+  key <- randomKey
+  return (\pre -> encryptECB key $ BS.concat [pre, buf])
 
 
 detectCipher :: CipherFunc -> CipherType
