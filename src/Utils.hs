@@ -55,6 +55,14 @@ juxt3 :: (a -> b) -> (a -> c) -> (a -> d) -> a -> (b, c, d)
 juxt3 f g h x = (f x, g x, h x)
 
 
+spread :: (a -> b) -> a -> a -> (b, b)
+spread f x y = (f x, f y)
+
+
+spread3 :: (a -> b) -> a -> a -> a -> (b, b, b)
+spread3 = f x y z = (f x, f y, f z)
+
+
 pair :: a -> b -> (a, b)
 pair a b = (a, b)
 
