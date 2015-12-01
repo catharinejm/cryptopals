@@ -53,3 +53,13 @@ juxt f g x = (f x, g x)
 
 juxt3 :: (a -> b) -> (a -> c) -> (a -> d) -> a -> (b, c, d)
 juxt3 f g h x = (f x, g x, h x)
+
+
+truncateOutput :: String -> String
+truncateOutput input = unlines trunc
+  where
+    inLines = lines input
+    trunc = if length inLines > 6
+            then take 3 inLines ++ ["..."] ++ lastN 3 inLines
+            else inLines
+    lastN n l = drop (length l - n) l

@@ -102,16 +102,6 @@ printKeyScores buf = do
   mapM_ print scores
 
 
-truncateOutput :: String -> String
-truncateOutput input = unlines trunc
-  where
-    inLines = lines input
-    trunc = if length inLines > 6
-            then take 3 inLines ++ ["..."] ++ lastN 3 inLines
-            else inLines
-    lastN n l = drop (length l - n) l
-
-
 challenge6 :: IO ()
 challenge6 = do
   bytes <- decodeBase64File filename
