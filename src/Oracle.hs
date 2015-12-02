@@ -1,4 +1,4 @@
-{-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE NamedFieldPuns, FlexibleContexts #-}
 
 module Oracle where
 
@@ -136,11 +136,9 @@ runForceDecrypt = do
     padding = gets dcPadding
     blockNum = gets dcBlockNum
     appendToKnown n = headBlock <$> (cipher <*> ((flip BS.snoc n) <$> known))
-    buildDict :: ForceDecrypt (M.Map ByteString Word8)
     buildDict = do
       keys <- mapM appendToKnown [0..255]
       pure $ M.fromList $ zip keys [0..255]
-    addByte :: Word8 -> ForceDecrypt ()
     addByte b = do
       modify $ \s -> s { dcKnownBytes = BS.tail $ BS.snoc (dcKnownBytes s) b
                        , dcBytesRead = (dcBytesRead s) + 1
