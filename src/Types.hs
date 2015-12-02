@@ -4,6 +4,7 @@ module Types where
 
 import qualified Crypto.Cipher.AES as AES
 import           Data.ByteString.Lazy (ByteString)
+import           Data.Int
 import           Data.Word
 
 data Challenge = Challenge { chalNum      :: !Int
@@ -29,3 +30,8 @@ data LanguageScore = LanguageScore { lsKey     :: !Word8
                    deriving (Show)
 
 type AESKey = AES.AES
+
+
+data CipherInfo = CipherInfo { ciBlockSize :: !Int64
+                             , ciPadding   :: !Int64
+                             }

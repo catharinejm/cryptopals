@@ -8,10 +8,11 @@ import           Data.ByteString.Lazy (ByteString)
 import qualified Data.ByteString.Lazy as BS
 import           Data.Int
 import           Types
+import           Utils
 
 
-blockLength :: Int64
-blockLength = 16
+blockSize :: Int64
+blockSize = 16
 
 
 initAES :: ByteString -> AESKey
@@ -44,27 +45,28 @@ pkcs7Pad len buf = padded
 
 
 pkcs7Pad16 :: ByteString -> ByteString
-pkcs7Pad16 = pkcs7Pad blockLength
+pkcs7Pad16 = pkcs7Pad blockSize
 
 
 pkcs7Unpad :: Int64 -> ByteString -> ByteString
 pkcs7Unpad len buf = if padLen > len || len > bufLen
                      then error "Invalid PKCS#7 padding"
                      else BS.take (bufLen - padLen) buf
+  where
     bufLen = BS.length buf
     padLen = fromIntegral $ BS.last buf
 
 
 pkcs7Unpad16 :: ByteString -> ByteString
-pkcs7Unpad16 = pkcs7Unpad blockLength
+pkcs7Unpad16 = pkcs7Unpad blockSize
 
 
 takeBlock :: ByteString -> ByteString
-takeBlock = BS.take blockLength
+takeBlock = BS.take blockSize
 
 
 dropBlock :: ByteString -> ByteString
-dropBlock = BS.drop blockLength
+dropBlock = BS.drop blockSize
 
 
 splitAtBlock :: ByteString -> (ByteString, ByteString)
@@ -75,7 +77,7 @@ encryptCBC :: AESKey -> ByteString -> ByteString -> ByteString
 encryptCBC key iv buf = BS.concat $ encrypt iv buf
   where
     encrypt l b = let cur = takeBlock b
-                  in if BS.length cur < blockLength
+                  in if BS.length cur < blockSize
                      then [encryptChunk l $ pkcs7Pad16 cur]
                      else let enc = encryptChunk l cur
                           in enc : encrypt enc (dropBlock b)
@@ -85,7 +87,7 @@ encryptCBC key iv buf = BS.concat $ encrypt iv buf
 decryptCBC :: AESKey -> ByteString -> ByteString -> ByteString
 decryptCBC key iv buf = BS.concat $ decrypt iv buf
   where
-    validate b = if BS.length b < blockLength
+    validate b = if BS.length b < blockSize
                  then error "Premature end of encrypted block"
                  else b
     decrypt l b = let cur = validate $ takeBlock b

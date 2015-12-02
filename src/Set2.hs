@@ -4,6 +4,7 @@ import           Cipher
 import           Control.Monad
 import qualified Data.ByteString.Lazy as BS
 import qualified Data.ByteString.Lazy.Char8 as CS
+import           Data.Int
 import           Oracle
 import           Types
 import           Utils
@@ -52,9 +53,21 @@ challenge11 = do
       return (cType == guess)
 
 
+challenge12 :: IO ()
+challenge12 = do
+  bytes <- decodeBase64File "data/set2.12.txt"
+  appEnc <- appendingEncrypter bytes
+  let CipherInfo bsize padLen = detectECBInfo appEnc
+  putStrLn $ unlines [ "  Challenge 12:"
+                     , "    Blocksize: " ++ show bsize
+                     , "    Initial Padding: " ++ show padLen
+                     ]
+
+
 run :: IO ()
 run = do
   putStrLn "Set 2:"
   challenge9
   challenge10
   challenge11
+  challenge12

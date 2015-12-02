@@ -34,7 +34,7 @@ randomBytes len = execWriterT (mkBytes len) >>= return . BS.pack
 
 
 randomKey :: IO AESKey
-randomKey = randomBytes blockLength >>= return . initAES
+randomKey = randomBytes blockSize >>= return . initAES
 
 
 type CipherFunc = ByteString -> ByteString
@@ -48,7 +48,7 @@ randomCipher = do
   useECB <- randomBool
   if useECB
     then return (ECB, encryptECB key)
-    else randomBytes blockLength >>= return . pair CBC . encryptCBC key
+    else randomBytes blockSize >>= return . pair CBC . encryptCBC key
 
 
 randomEncrypter :: CipherFunc -> IO CipherFunc
@@ -60,10 +60,10 @@ randomEncrypter cipher = do
     randomPad = randomInt (5, 10) >>= randomBytes . fromIntegral
 
 
-prependingEncrypter :: ByteString -> IO CipherFunc
-prependingEncrypter buf = do
+appendingEncrypter :: ByteString -> IO CipherFunc
+appendingEncrypter buf = do
   key <- randomKey
-  return (\pre -> encryptECB key $ BS.concat [pre, buf])
+  return (\post -> encryptECB key $ BS.concat [buf, post])
 
 
 detectCipher :: CipherFunc -> CipherType
@@ -71,6 +71,22 @@ detectCipher cipher = if hasDupes blocks
                       then ECB
                       else CBC
   where
-    buf = BS.take (4 * blockLength) $ BS.repeat 0
+    buf = BS.take (4 * blockSize) $ BS.repeat 0
     encoded = cipher buf
-    blocks = groupedBuffer blockLength encoded
+    blocks = groupedBuffer blockSize encoded
+
+
+detectECBInfo :: CipherFunc -> CipherInfo
+detectECBInfo cipher = padToChange 1 baseLength
+  where
+    getLen = BS.length . cipher . flip BS.replicate 0
+    baseLength = getLen 0
+    padToChange n len = let len' = getLen n
+                         in if len' > len
+                            then CipherInfo (len' - len) n
+                            else padToChange (n+1) len
+
+
+-- forceDecryptECB :: CipherFunc -> ByteString -> ByteString
+-- forceDecryptECB cipher input =
+  

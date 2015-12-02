@@ -60,7 +60,7 @@ spread f x y = (f x, f y)
 
 
 spread3 :: (a -> b) -> a -> a -> a -> (b, b, b)
-spread3 = f x y z = (f x, f y, f z)
+spread3 f x y z = (f x, f y, f z)
 
 
 pair :: a -> b -> (a, b)
