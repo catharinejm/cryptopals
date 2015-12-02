@@ -30,8 +30,3 @@ data LanguageScore = LanguageScore { lsKey     :: !Word8
                    deriving (Show)
 
 type AESKey = AES.AES
-
-
-data CipherInfo = CipherInfo { ciBlockSize :: !Int64
-                             , ciPadding   :: !Int64
-                             }

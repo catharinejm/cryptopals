@@ -61,26 +61,30 @@ pkcs7Unpad16 :: ByteString -> ByteString
 pkcs7Unpad16 = pkcs7Unpad blockSize
 
 
-takeBlock :: ByteString -> ByteString
-takeBlock = BS.take blockSize
+headBlock :: ByteString -> ByteString
+headBlock = BS.take blockSize
 
 
-dropBlock :: ByteString -> ByteString
-dropBlock = BS.drop blockSize
+tailBlocks :: ByteString -> ByteString
+tailBlocks = BS.drop blockSize
 
 
-splitAtBlock :: ByteString -> (ByteString, ByteString)
-splitAtBlock = juxt takeBlock dropBlock
+dropBlocks :: Int64 -> ByteString -> ByteString
+dropBlocks n = BS.drop (n * blockSize)
+
+
+getBlock :: Int64 -> ByteString -> ByteString
+getBlock n = headBlock . dropBlocks n
 
 
 encryptCBC :: AESKey -> ByteString -> ByteString -> ByteString
 encryptCBC key iv buf = BS.concat $ encrypt iv buf
   where
-    encrypt l b = let cur = takeBlock b
+    encrypt l b = let cur = headBlock b
                   in if BS.length cur < blockSize
                      then [encryptChunk l $ pkcs7Pad16 cur]
                      else let enc = encryptChunk l cur
-                          in enc : encrypt enc (dropBlock b)
+                          in enc : encrypt enc (tailBlocks b)
     encryptChunk last = encryptBlock key . xorBuffers last
 
 
@@ -90,9 +94,9 @@ decryptCBC key iv buf = BS.concat $ decrypt iv buf
     validate b = if BS.length b < blockSize
                  then error "Premature end of encrypted block"
                  else b
-    decrypt l b = let cur = validate $ takeBlock b
+    decrypt l b = let cur = validate $ headBlock b
                       dec = decryptChunk l cur
-                      next = dropBlock b
+                      next = tailBlocks b
                   in if BS.null next
                      then [pkcs7Unpad16 dec]
                      else dec : decrypt cur next

@@ -56,11 +56,14 @@ challenge11 = do
 challenge12 :: IO ()
 challenge12 = do
   bytes <- decodeBase64File "data/set2.12.txt"
-  appEnc <- appendingEncrypter bytes
-  let CipherInfo bsize padLen = detectECBInfo appEnc
+  key <- randomKey
+  let cipher = prependingEncrypter key bytes
+      bsize = detectECBBlockSize cipher
+      dec = forceDecryptECB cipher
   putStrLn $ unlines [ "  Challenge 12:"
                      , "    Blocksize: " ++ show bsize
-                     , "    Initial Padding: " ++ show padLen
+                     , "    Decrypted:"
+                     , CS.unpack dec
                      ]
 
 
