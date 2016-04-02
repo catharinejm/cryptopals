@@ -1,22 +1,23 @@
 module TextEncodings where
 
-import           Data.Bits
-import           Data.ByteString.Lazy (ByteString)
-import qualified Data.ByteString.Lazy as BS
-import           Data.Binary.Get
+import           Control.Monad
+import           Control.Monad.Except
+import           Control.Monad.RWS.Lazy
+import           Control.Monad.Writer.Lazy
 import           Data.Binary.Bits.Get (BitGet)
 import qualified Data.Binary.Bits.Get as B
 import qualified Data.Binary.Bits.Put as B
+import           Data.Binary.Get
 import           Data.Binary.Put
-import           Data.Word
+import           Data.Bits
+import           Data.ByteString.Lazy (ByteString)
+import qualified Data.ByteString.Lazy as BS
 import           Data.Char
-import           Data.List
+import           Data.List hiding ((++))
 import           Data.Vector ((!), (!?))
 import qualified Data.Vector as V
-import           Control.Monad
-import           Control.Monad.RWS.Lazy
-import           Control.Monad.Writer.Lazy
-import           Control.Monad.Except
+import           Data.Word
+import           DefaultImports
 
 decodeHex :: String -> Put
 decodeHex [] = return ()

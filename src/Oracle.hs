@@ -9,10 +9,10 @@ import           Control.Monad.Writer.Lazy
 import           Data.ByteString.Lazy (ByteString)
 import qualified Data.ByteString.Lazy as BS
 import           Data.Int
-import           Data.List
 import           Data.Map ((!))
 import qualified Data.Map as M
 import           Data.Word
+import           DefaultImports
 import           System.Random
 import           Types
 import           Utils

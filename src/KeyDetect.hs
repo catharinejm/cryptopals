@@ -6,11 +6,11 @@ import qualified Data.ByteString.Lazy as BS
 import qualified Data.ByteString.Lazy.Char8 as CS
 import           Data.Char
 import           Data.Int
-import           Data.List
 import qualified Data.Map as M
 import           Data.Map.Strict (Map)
 import qualified Data.Vector as V
 import           Data.Word
+import           DefaultImports
 import           Types
 import           Utils
 

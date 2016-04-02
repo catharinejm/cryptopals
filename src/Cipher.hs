@@ -7,6 +7,7 @@ import           Data.Binary.Put
 import           Data.ByteString.Lazy (ByteString)
 import qualified Data.ByteString.Lazy as BS
 import           Data.Int
+import           DefaultImports
 import           Types
 import           Utils
 

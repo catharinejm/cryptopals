@@ -9,12 +9,11 @@ import qualified Data.ByteString.Lazy.Char8 as CS
 import           Data.Int
 import           Data.Text (Text)
 import qualified Data.Text as T
+import           DefaultImports
 import           FakeWeb
 import           Oracle
 import           Types
 import           Utils
-
-import           Prelude hiding ((++))
 
 challenge9 :: IO ()
 challenge9 = print chal

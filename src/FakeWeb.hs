@@ -2,12 +2,10 @@
 
 module FakeWeb where
 
-import           Data.List hiding ((++))
 import           Data.Text (Text)
 import qualified Data.Text as T
+import           DefaultImports
 import           Types
-
-import           Prelude hiding ((++))
 
 profileFor :: Text -> Text
 profileFor email = "email=" ++ saniEmail ++ "&uid=10&role=user"

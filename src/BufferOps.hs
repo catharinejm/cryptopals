@@ -11,6 +11,7 @@ import qualified Data.ByteString.Lazy as BS
 import           Data.Int
 import           Data.Maybe
 import           Data.Word
+import           DefaultImports
 
 
 combineBuffers :: (Word8 -> Word8 -> a) -> (ByteString, ByteString) -> [a]

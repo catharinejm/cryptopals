@@ -8,18 +8,7 @@ import           Data.Int
 import           Data.Text (Text)
 import qualified Data.Text as T
 import           Data.Word
-
-import qualified Prelude
-import           Prelude hiding ((++))
-
-class Concatenable a where
-  (++) :: a -> a -> a
-
-instance Concatenable [a] where
-  (++) = (Prelude.++)
-
-instance Concatenable Text where
-  a ++ b = T.concat [a, b]
+import           DefaultImports
 
 data Challenge = Challenge { chalNum      :: !Int
                            , chalExpected :: !String

@@ -5,13 +5,12 @@ import           Control.Monad
 import           Control.Monad.Writer
 import           Data.ByteString.Lazy (ByteString)
 import qualified Data.ByteString.Lazy as BS
-import           Data.List
 import qualified Data.Map as M
 import           Data.Map.Strict (Map)
 import           Data.Word
+import           DefaultImports
 import           System.IO
 import           TextEncodings
-
 
 decodeFile :: (String -> ByteString) -> FilePath -> IO ByteString
 decodeFile decoder filename =
