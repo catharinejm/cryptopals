@@ -11,13 +11,15 @@ import qualified Data.ByteString.Lazy as BS
 import qualified Data.ByteString.Lazy.Char8 as CS
 import           Data.Char (chr)
 import           Data.Function
-import           Data.List
+import           Data.List hiding ((++))
 import           KeyDetect
 import           System.CPUTime
 import           System.IO
 import           TextEncodings
 import           Types
 import           Utils
+
+import           Prelude hiding ((++))
 
 
 challenge1 :: IO ()

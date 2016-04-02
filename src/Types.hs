@@ -5,7 +5,21 @@ module Types where
 import qualified Crypto.Cipher.AES as AES
 import           Data.ByteString.Lazy (ByteString)
 import           Data.Int
+import           Data.Text (Text)
+import qualified Data.Text as T
 import           Data.Word
+
+import qualified Prelude
+import           Prelude hiding ((++))
+
+class Concatenable a where
+  (++) :: a -> a -> a
+
+instance Concatenable [a] where
+  (++) = (Prelude.++)
+
+instance Concatenable Text where
+  a ++ b = T.concat [a, b]
 
 data Challenge = Challenge { chalNum      :: !Int
                            , chalExpected :: !String
@@ -28,5 +42,11 @@ data LanguageScore = LanguageScore { lsKey     :: !Word8
                                    , lsDecoded :: !ByteString
                                    }
                    deriving (Show)
+
+data WebUser = WebUser { wEmail  :: !Text
+                       , wUserId :: !Text
+                       , wRole   :: !Text
+                       }
+             deriving (Show)
 
 type AESKey = AES.AES

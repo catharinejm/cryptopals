@@ -1,3 +1,5 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 module Set2 where
 
 import           Cipher
@@ -5,10 +7,14 @@ import           Control.Monad
 import qualified Data.ByteString.Lazy as BS
 import qualified Data.ByteString.Lazy.Char8 as CS
 import           Data.Int
+import           Data.Text (Text)
+import qualified Data.Text as T
+import           FakeWeb
 import           Oracle
 import           Types
 import           Utils
 
+import           Prelude hiding ((++))
 
 challenge9 :: IO ()
 challenge9 = print chal
@@ -67,6 +73,21 @@ challenge12 = do
                      ]
 
 
+textShow :: Show a => a -> Text
+textShow = T.pack . show
+
+putTextLn :: Text -> IO ()
+putTextLn = putStrLn . T.unpack
+
+challenge13 :: IO ()
+challenge13 = do
+  let testQuery = "email=bob@dole.banana&uid=42&role=admin"
+  putTextLn $ T.unlines [ "  Challenge 13:"
+                        , "    Test: " ++ testQuery
+                        , "    Parsed: " ++ (textShow . parseQueryString $ testQuery)
+                        , "    profileFor: " ++ profileFor testQuery
+                        ]
+
 run :: IO ()
 run = do
   putStrLn "Set 2:"
@@ -74,3 +95,4 @@ run = do
   challenge10
   challenge11
   challenge12
+  challenge13
