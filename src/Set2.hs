@@ -7,8 +7,8 @@ import           Control.Monad
 import qualified Data.ByteString.Lazy as BS
 import qualified Data.ByteString.Lazy.Char8 as CS
 import           Data.Int
-import           Data.Text (Text)
-import qualified Data.Text as T
+import           Data.Text.Lazy (Text)
+import qualified Data.Text.Lazy as T
 import           DefaultImports
 import           FakeWeb
 import           Oracle
@@ -80,11 +80,14 @@ putTextLn = putStrLn . T.unpack
 
 challenge13 :: IO ()
 challenge13 = do
-  let testQuery = "email=bob@dole.banana&uid=42&role=admin"
+  key <- randomKey
+  let adminString = forceAdmin key
   putTextLn $ T.unlines [ "  Challenge 13:"
-                        , "    Test: " ++ testQuery
-                        , "    Parsed: " ++ (textShow . parseQueryString $ testQuery)
-                        , "    profileFor: " ++ profileFor testQuery
+                        , "    Admin String: " ++ adminString
+                        , case parseQueryString adminString of
+                           Just (WebUser {wRole="admin"}) -> "    Successfully generated admin!"
+                           Just _                         -> "    FAILED - User is not an admin :("
+                           Nothing                        -> "    FAILED - Generated string failed to parse!"
                         ]
 
 run :: IO ()

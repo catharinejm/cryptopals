@@ -4,9 +4,11 @@ module DefaultImports
        , module DefaultImports
        ) where
 
+import           Data.ByteString.Lazy (ByteString)
+import qualified Data.ByteString.Lazy as BS
 import           Data.List hiding ((++))
-import           Data.Text (Text)
-import qualified Data.Text as T
+import           Data.Text.Lazy (Text)
+import qualified Data.Text.Lazy as T
 import qualified Prelude
 import           Prelude hiding ((++))
 
@@ -18,3 +20,6 @@ instance Concatenable [a] where
 
 instance Concatenable Text where
   a ++ b = T.concat [a, b]
+
+instance Concatenable ByteString where
+  a ++ b = BS.concat [a, b]

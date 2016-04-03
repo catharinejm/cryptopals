@@ -5,8 +5,8 @@ module Types where
 import qualified Crypto.Cipher.AES as AES
 import           Data.ByteString.Lazy (ByteString)
 import           Data.Int
-import           Data.Text (Text)
-import qualified Data.Text as T
+import           Data.Text.Lazy (Text)
+import qualified Data.Text.Lazy as T
 import           Data.Word
 import           DefaultImports
 
